@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-container fade-in">
+    <span class="beta-badge">V 1.0 BETA</span>
+    <h1>Domina o Mercado com <span class="neon-text">FlowTrade</span></h1>
+    <p>A tua ponte entre o caos do mercado e a clareza dos dados.</p>
+    
+    <div class="auth-buttons">
+        <a href="{{ url_for('login_page') }}"><button class="btn-glow">Começar Agora</button></a>
+        <a href="{{ url_for('screener_page') }}"><button class="btn-outline">Explorar Demo</button></a>
+    </div>
+</div>
+
+<div class="stats-row fade-in">
+    <div class="stat-item">
+        <h2>$10M+</h2>
+        <p>Volume Analisado</p>
+    </div>
+    <div class="stat-item">
+        <h2>24/7</h2>
+        <p>Monitorização AI</p>
+    </div>
+    <div class="stat-item">
+        <h2>50+</h2>
+        <p>Indicadores</p>
+    </div>
+</div>
+
+<div class="ticker-container-inline">
+    <div class="ticker-track" id="home-ticker">
+        <div class="ticker-item">A carregar mercado...</div>
+    </div>
+</div>
+
+<div class="features-grid-container mt-60">
+    <a href="{{ url_for('ai_page') }}" class="feature-card glass-panel">
+        <div class="icon-box"><i class="fa-solid fa-brain"></i></div>
+        <h3>AI Analysis</h3>
+        <p>Modelos preditivos avançados.</p>
+    </a>
+    <a href="{{ url_for('screener_page') }}" class="feature-card glass-panel">
+        <div class="icon-box"><i class="fa-solid fa-bolt"></i></div>
+        <h3>Live Signals</h3>
+        <p>Sinais de compra/venda instantâneos.</p>
+    </a>
+    <a href="{{ url_for('risk_page') }}" class="feature-card glass-panel">
+        <div class="icon-box"><i class="fa-solid fa-shield-halved"></i></div>
+        <h3>Risk Guard</h3>
+        <p>Proteção de capital automática.</p>
+    </a>
+</div>
+
+<div class="chart-section-container glass-panel fade-in">
+    <div class="chart-header">
+        <h3><i class="fa-solid fa-chart-area"></i> Visão Geral do Mercado (BTC/SPY)</h3>
+        <div class="live-indicator"><span class="blink">●</span> LIVE</div>
+    </div>
+    <div id="mainChart"></div>
+</div>
+
+<div class="section-divider"></div>
+
+<div class="home-markets-grid">
+    
+    <div class="market-col glass-panel">
+        <div class="col-header-home">
+            <h2><i class="fa-brands fa-bitcoin"></i> Top Crypto</h2>
+            <a href="{{ url_for('crypto_page') }}" class="see-more">Ver Tudo <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
+        <ul id="home-crypto-list" class="market-list home-list">
+            <li><span class="loading">A sincronizar...</span></li>
+        </ul>
+    </div>
+
+    <div class="market-col glass-panel">
+        <div class="col-header-home">
+            <h2><i class="fa-solid fa-chart-line"></i> Top ETFs</h2>
+            <a href="{{ url_for('etf_page') }}" class="see-more">Ver Tudo <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
+        <ul id="home-etf-list" class="market-list home-list">
+            <li><span class="loading">A sincronizar...</span></li>
+        </ul>
+    </div>
+
+</div>
+
+<footer class="pro-footer">
+    <div class="copyright">&copy; 2026 FlowTrade Inc.</div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // 1. Iniciar Scroll Fluido
+        const lenis = new Lenis({
+            duration: 1.2,
+            easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+            smooth: true
+        });
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+
+        // 2. Carregar Dados da Home (Ticker e Tabelas)
+        loadHomeData();
+
+        // 3. Renderizar Gráfico Demo
+        renderHomeChart();
+    });
+</script>
+{% endblock %}

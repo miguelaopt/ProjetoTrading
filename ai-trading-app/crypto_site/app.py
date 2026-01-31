@@ -1,77 +1,76 @@
 from flask import Flask, render_template, jsonify, request
-from google import genai  # <--- THE NEW LIBRARY
+from google import genai
 import yfinance as yf
 
 app = Flask(__name__)
 
-# --- CONFIGURATION ---
-# Replace with your actual key
 API_KEY = "AIzaSyBmMHvghgV13qHOzv-OcyCT887MZacnnzo"
+if API_KEY:
+    client = genai.Client(api_key=API_KEY)
 
-# Initialize the new Client
-client = genai.Client(api_key=API_KEY)
-
+# --- ROTAS DAS PÁGINAS (LINKS DO MENU) ---
 @app.route('/')
 def home():
-    return render_template('index.html')
+    return render_template('home.html', active_page='home')
 
-@app.route('/get_crypto')
-def get_crypto():
-    """Scans the market using yfinance"""
-    tickers = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'BNB-USD', 'DOGE-USD']
-    data = []
+@app.route('/crypto')
+def crypto_page():
+    return render_template('crypto.html', active_page='crypto')
+
+@app.route('/etf')
+def etf_page():
+    return render_template('etf.html', active_page='etf')
+
+@app.route('/login')
+def login_page():
+    return render_template('auth.html', mode='login')
+
+@app.route('/signup')
+def signup_page():
+    return render_template('auth.html', mode='signup')
+
+# --- ROTAS DAS FERRAMENTAS ---
+@app.route('/screener')
+def screener_page():
+    return render_template('screener.html', active_page='screener')
+
+@app.route('/ai')
+def ai_page():
+    return render_template('ai.html', active_page='ai')
+
+@app.route('/risk')
+def risk_page():
+    return render_template('risk.html', active_page='risk')
+
+# --- API DE DADOS (Mantém-se igual para alimentar as páginas) ---
+@app.route('/get_market_data')
+def get_market_data():
+    # (O mesmo código de antes para buscar dados)
+    cryptos = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'BNB-USD', 'ADA-USD']
+    etfs = ['SPY', 'QQQ', 'VOO', 'IWM', 'GLD', 'EEM']
     
-    try:
-        for ticker in tickers:
-            stock = yf.Ticker(ticker)
-            # Fast fetch
-            hist = stock.history(period="2d")
-            
-            if len(hist) >= 2:
-                current = hist['Close'].iloc[-1]
-                prev = hist['Close'].iloc[-2]
-                change = ((current - prev) / prev) * 100
-                
-                data.append({
-                    "symbol": ticker.replace("-USD", ""),
-                    "price": round(current, 2),
-                    "change": round(change, 2)
-                })
-        
-        # Sort by price high to low
-        data.sort(key=lambda x: x['price'], reverse=True)
-        return jsonify(data)
-        
-    except Exception as e:
-        return jsonify({"error": str(e)})
+    def fetch(tickers):
+        data = []
+        try:
+            for t in tickers:
+                stock = yf.Ticker(t)
+                hist = stock.history(period="2d")
+                if len(hist) >= 2:
+                    curr = hist['Close'].iloc[-1]
+                    prev = hist['Close'].iloc[-2]
+                    change = ((curr - prev) / prev) * 100
+                    data.append({
+                        "symbol": t.replace("-USD", ""),
+                        "price": round(curr, 2),
+                        "change": round(change, 2)
+                    })
+        except: pass
+        return data
 
-@app.route('/ask_ai', methods=['POST'])
-def ask_ai():
-    """Uses the new google.genai SDK to get advice"""
-    try:
-        # 1. Get the current market context from the request
-        market_context = request.json.get('context', 'No data provided')
-        
-        prompt = f"""
-        You are a crypto expert. Here is the current market status:
-        {market_context}
-        
-        Based on this, give me:
-        1. The "Coin of the Moment".
-        2. A 1-sentence explanation why.
-        """
-
-        # 2. Call Gemini (New Syntax)
-        response = client.models.generate_content(
-            model='gemini-2.0-flash', 
-            contents=prompt
-        )
-        
-        return jsonify({"advice": response.text})
-        
-    except Exception as e:
-        print(e)
-        return jsonify({"advice": "⚠️ AI Error: Check your API Key or Model Name."})
+    return jsonify({
+        "crypto": fetch(cryptos),
+        "etf": fetch(etfs)
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)

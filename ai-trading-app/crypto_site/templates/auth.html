@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container fade-in">
+    <div class="glass-panel auth-box">
+        <h2>
+            {% if mode == 'login' %}
+                <i class="fa-solid fa-right-to-bracket"></i> Login
+            {% else %}
+                <i class="fa-solid fa-user-plus"></i> Registar
+            {% endif %}
+        </h2>
+        
+        <form>
+            <div class="input-group">
+                <i class="fa-regular fa-envelope"></i>
+                <input type="email" placeholder="Email" required>
+            </div>
+            <div class="input-group">
+                <i class="fa-solid fa-lock"></i>
+                <input type="password" placeholder="Password" required>
+            </div>
+            
+            <button type="submit" class="btn-glow full-width">
+                {% if mode == 'login' %} Entrar {% else %} Criar Conta {% endif %}
+            </button>
+        </form>
+
+        <p class="auth-footer">
+            {% if mode == 'login' %}
+                Ainda não tens conta? <a href="{{ url_for('signup_page') }}">Regista-te</a>
+            {% else %}
+                Já tens conta? <a href="{{ url_for('login_page') }}">Faz Login</a>
+            {% endif %}
+        </p>
+    </div>
+</div>
+{% endblock %}

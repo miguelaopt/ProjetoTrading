@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowTrade Galaxy</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+
+    <div class="stars"></div>
+    <div class="twinkling"></div>
+
+    <nav class="navbar glass">
+        <div class="nav-left">
+            <a href="{{ url_for('home') }}" class="logo">
+                <i class="fa-solid fa-meteor"></i> FlowTrade
+            </a>
+        </div>
+        
+        <div class="nav-right">
+            <a href="{{ url_for('crypto_page') }}" class="{{ 'active-link' if active_page == 'crypto' else '' }}">
+                Crypto
+            </a>
+            <a href="{{ url_for('etf_page') }}" class="{{ 'active-link' if active_page == 'etf' else '' }}">
+                ETFs
+            </a>
+            <a href="{{ url_for('screener_page') }}" class="{{ 'active-link' if active_page == 'screener' else '' }}">Screener</a>
+            <a href="{{ url_for('ai_page') }}" class="{{ 'active-link' if active_page == 'ai' else '' }}">AI Analysis</a>
+            <a href="{{ url_for('risk_page') }}" class="{{ 'active-link' if active_page == 'risk' else '' }}">Risk</a>
+             <div class="user-dropdown-container">
+                <div class="user-icon" onclick="toggleUserMenu()">
+                    <i class="fa-regular fa-user"></i>
+                </div>
+                <div id="user-menu" class="dropdown-content glass hidden">
+                    <a href="{{ url_for('login_page') }}">Login</a>
+                    <a href="#">Sign Up</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="page-content fade-in">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

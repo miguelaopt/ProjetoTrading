@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="market-page-container">
+    <div class="page-header">
+        <h2><i class="fa-solid fa-chart-line"></i> Mercado ETF</h2>
+        <p>Fundos de Índice e Mercados Globais.</p>
+    </div>
+
+    <div class="glass-panel">
+        <div class="performance-row">
+            <div class="perf-card best">
+                <small>Melhor 24h</small>
+                <span id="etf-best">--</span>
+            </div>
+            <div class="perf-card worst">
+                <small>Pior 24h</small>
+                <span id="etf-worst">--</span>
+            </div>
+        </div>
+
+        <ul id="etf-list" class="market-list mt-20">
+            <li><span class="loading">A carregar Wall Street...</span></li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        loadMarketData('etf');
+    });
+</script>
+{% endblock %}
