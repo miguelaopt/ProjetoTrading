@@ -550,3 +550,75 @@ body::after {
     .arrow-connector { transform: rotate(90deg); margin: 10px 0; }
     .newsletter-form input { width: 100%; }
 }
+
+/* --- SENTIMENTO DE MERCADO (GAUGE) --- */
+.sentiment-box {
+    text-align: center; max-width: 800px; margin: 0 auto;
+}
+.sentiment-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+}
+.sentiment-badge {
+    background: rgba(0, 255, 157, 0.1); color: var(--success);
+    padding: 5px 15px; border-radius: 20px; font-weight: bold; border: 1px solid var(--success);
+    text-shadow: 0 0 10px var(--success);
+}
+
+.gauge-container { margin: 30px 0; }
+.gauge-bar {
+    height: 15px; width: 100%; background: rgba(255,255,255,0.1);
+    border-radius: 10px; overflow: hidden; position: relative;
+}
+.gauge-fill {
+    height: 100%;
+    /* Gradiente do Medo (Vermelho) para Ganância (Verde) */
+    background: linear-gradient(90deg, #ff4d4d, #f1c40f, #00ff9d);
+    box-shadow: 0 0 20px rgba(0, 255, 157, 0.5);
+    border-radius: 10px;
+    transition: width 1s ease-in-out;
+}
+.gauge-labels {
+    display: flex; justify-content: space-between; margin-top: 10px;
+    font-size: 0.8rem; color: var(--text-muted);
+}
+.sentiment-desc { color: #ccc; font-style: italic; }
+
+/* --- PRICING TABLES (PREÇOS) --- */
+.pricing-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 30px; max-width: 1100px; margin: 0 auto 100px; padding: 0 20px;
+}
+
+.pricing-card {
+    text-align: center; padding: 40px 30px; position: relative;
+    display: flex; flex-direction: column;
+}
+
+.pricing-card h3 { font-size: 1.5rem; margin-bottom: 10px; color: white; }
+.price { font-size: 3rem; font-weight: 800; color: white; margin: 20px 0; }
+.price span { font-size: 1rem; color: var(--text-muted); font-weight: normal; }
+
+.features-list { list-style: none; padding: 0; margin-bottom: 30px; flex-grow: 1; }
+.features-list li {
+    padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: #ccc; font-size: 0.95rem;
+}
+.features-list li i { color: var(--neon-blue); margin-right: 10px; }
+
+/* Destaque para o plano Pro */
+.pricing-card.featured {
+    border-color: var(--neon-purple);
+    box-shadow: 0 0 30px rgba(188, 19, 254, 0.15);
+    transform: scale(1.05); z-index: 1;
+}
+.badge-popular {
+    position: absolute; top: -15px; left: 50%; transform: translateX(-50%);
+    background: var(--neon-purple); color: white; padding: 5px 15px;
+    border-radius: 20px; font-size: 0.8rem; font-weight: bold;
+    box-shadow: 0 0 15px var(--neon-purple);
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+    .pricing-card.featured { transform: scale(1); margin: 20px 0; }
+}
