@@ -1,34 +1,158 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="market-page-container">
-    <div class="page-header">
-        <h2><i class="fa-brands fa-bitcoin"></i> Mercado Crypto</h2>
-        <p>Top performadores em tempo real.</p>
+<style>
+    /* Grelha 2x2 para as ferramentas */
+    .ai-tools-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 25px;
+        margin-top: 20px;
+    }
+    
+    @media (max-width: 768px) {
+        .ai-tools-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="market-page-container fade-in">
+    
+    <div class="page-header text-center">
+        <h2><i class="fa-brands fa-bitcoin"></i> Crypto Hub</h2>
+        <p>A tua central de inteligência blockchain.</p>
     </div>
 
-    <div class="glass-panel">
-        <div class="performance-row">
-            <div class="perf-card best">
-                <small>Melhor 24h</small>
-                <span id="crypto-best">--</span>
-            </div>
-            <div class="perf-card worst">
-                <small>Pior 24h</small>
-                <span id="crypto-worst">--</span>
-            </div>
+    <div class="stats-row" style="margin: 40px 0; gap: 20px;">
+        <div class="stat-item glass-panel">
+            <div class="icon-box" style="margin-bottom:10px; font-size:1.5rem;"><i class="fa-brands fa-btc"></i></div>
+            <h3 style="margin:0;">$95,430</h3>
+            <span class="green">+2.4%</span>
+            <p style="margin-top:5px; font-size:0.8rem;">Bitcoin Price</p>
+        </div>
+        <div class="stat-item glass-panel">
+            <div class="icon-box" style="margin-bottom:10px; font-size:1.5rem;"><i class="fa-brands fa-ethereum"></i></div>
+            <h3 style="margin:0;">$2,890</h3>
+            <span class="red">-0.5%</span>
+            <p style="margin-top:5px; font-size:0.8rem;">Ethereum Price</p>
+        </div>
+        <div class="stat-item glass-panel">
+            <div class="icon-box" style="margin-bottom:10px; font-size:1.5rem;"><i class="fa-solid fa-chart-pie"></i></div>
+            <h3 style="margin:0;">58.2%</h3>
+            <span class="text-muted">High</span>
+            <p style="margin-top:5px; font-size:0.8rem;">Dominance</p>
+        </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div id="ai-suite" class="text-center mb-20" style="scroll-margin-top: 100px;">
+        <h3><i class="fa-solid fa-robot"></i> Suite de Trading AI</h3>
+        <p class="text-muted">Escolhe a ferramenta certa para o teu objetivo.</p>
+    </div>
+
+    <div class="ai-tools-grid">
+        
+        <div class="feature-card glass-panel">
+            <div class="icon-box"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+            <h3>Analisar Moeda</h3>
+            <p>Calculadora de Risco e ROI para um trade específico.</p>
+            <a href="{{ url_for('crypto_analyze_page') }}" class="btn-glow mt-20">
+                Analisar
+            </a>
         </div>
 
-        <ul id="crypto-list" class="market-list mt-20">
-            <li><span class="loading">A carregar Blockchain...</span></li>
-        </ul>
-    </div>
-</div>
+        <div class="feature-card glass-panel">
+            <div class="icon-box"><i class="fa-solid fa-bolt"></i></div>
+            <h3>Top Picks</h3>
+            <p>Oportunidades de momentum detetadas pelo scanner.</p>
+            <a href="{{ url_for('crypto_recommend_page') }}" class="btn-glow mt-20">
+                Ver Lista
+            </a>
+        </div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // Chama a função global definida no script.js, mas pede só crypto
-        loadMarketData('crypto'); 
-    });
-</script>
+        <div class="feature-card glass-panel">
+            <div class="icon-box"><i class="fa-solid fa-chart-pie"></i></div>
+            <h3>Criar Portfólio</h3>
+            <p>Estratégia de diversificação baseada no teu capital.</p>
+            <a href="{{ url_for('crypto_strategy_page') }}" class="btn-glow mt-20">
+                Planear
+            </a>
+        </div>
+
+        <div class="feature-card glass-panel">
+            <div class="icon-box"><i class="fa-solid fa-comments-dollar"></i></div>
+            <h3>Market Decoder</h3>
+            <p>A AI explica "porquê" o mercado se mexeu hoje.</p>
+            <a href="{{ url_for('crypto_decoder_page') }}" class="btn-glow mt-20">
+                Decifrar
+            </a>
+        </div>
+    </div>
+
+    <div class="section-divider"></div>
+
+    <div id="top-movers" class="section-container mt-60" style="scroll-margin-top: 100px;">
+        <div class="glass-panel">
+            <h3 class="mb-20"><i class="fa-solid fa-layer-group"></i> Movimentos do Dia</h3>
+            <div class="home-markets-grid" style="margin:0; padding:0; gap:20px;">
+                <div>
+                    <h4 class="green"><i class="fa-solid fa-arrow-trend-up"></i> Top Gainers</h4>
+                    <ul id="gainers-list" class="market-list"><li><span class="loading">A calcular...</span></li></ul>
+                </div>
+                <div>
+                    <h4 class="red"><i class="fa-solid fa-arrow-trend-down"></i> Top Losers</h4>
+                    <ul id="losers-list" class="market-list"><li><span class="loading">A calcular...</span></li></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="section-divider"></div>
+
+    <div class="section-container mt-60">
+        <div class="text-center mb-20">
+            <h3><i class="fa-solid fa-graduation-cap"></i> Academia Rápida</h3>
+        </div>
+        <div class="features-grid" style="margin-top:20px;">
+            <div class="glass-panel academy-card">
+                <div class="academy-icon">🐂</div>
+                <h4>Bull Market</h4>
+                <p>Mercado otimista. Preços a subir consistentemente.</p>
+            </div>
+            <div class="glass-panel academy-card">
+                <div class="academy-icon">🐻</div>
+                <h4>Bear Market</h4>
+                <p>Mercado pessimista. Preços em queda prolongada.</p>
+            </div>
+            <div class="glass-panel academy-card">
+                <div class="academy-icon">💎</div>
+                <h4>HODL</h4>
+                <p>Estratégia de manter a moeda a longo prazo, ignorando quedas.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="top-20-market" class="section-container mt-100 mb-100" style="scroll-margin-top: 100px;">
+        <div class="text-center mb-20">
+            <h3><i class="fa-solid fa-earth-americas"></i> Top 20 Mercado Global</h3>
+            <p class="text-muted">Os principais ativos ordenados por relevância.</p>
+        </div>
+        
+        <div class="glass-panel table-responsive">
+            <table class="market-table-full">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Ativo</th>
+                        <th class="text-right">Preço</th>
+                        <th class="text-right">24h %</th>
+                    </tr>
+                </thead>
+                <tbody id="top-20-body">
+                    <tr><td colspan="4" class="text-center loading">A carregar dados globais...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
 {% endblock %}

@@ -10,15 +10,33 @@
                 <i class="fa-solid fa-user-plus"></i> Registar
             {% endif %}
         </h2>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div style="background: rgba(255, 0, 0, 0.2); border: 1px solid red; padding: 10px; border-radius: 10px; margin-bottom: 20px;">
+                    {% for message in messages %}
+                        <p style="color: #ffcccc; margin: 0;">{{ message }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
         
-        <form>
+        <form method="POST" action="{{ url_for('login_page' if mode == 'login' else 'signup_page') }}">
+            
+            {% if mode == 'signup' %}
+            <div class="input-group">
+                <i class="fa-regular fa-user"></i>
+                <input type="text" name="name" placeholder="O teu nome" required>
+            </div>
+            {% endif %}
+
             <div class="input-group">
                 <i class="fa-regular fa-envelope"></i>
-                <input type="email" placeholder="Email" required>
+                <input type="email" name="email" placeholder="Email" required>
             </div>
             <div class="input-group">
                 <i class="fa-solid fa-lock"></i>
-                <input type="password" placeholder="Password" required>
+                <input type="password" name="password" placeholder="Password" required>
             </div>
             
             <button type="submit" class="btn-glow full-width">

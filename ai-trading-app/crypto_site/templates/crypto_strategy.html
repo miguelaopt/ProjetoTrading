@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-container fade-in" style="max-width: 700px; margin-top: 100px;">
+    <a href="{{ url_for('crypto_page') }}" class="btn-outline mb-20" style="text-decoration:none;">
+        <i class="fa-solid fa-arrow-left"></i> Voltar
+    </a>
+
+    <div class="glass-panel text-center">
+        <div class="icon-box"><i class="fa-solid fa-layer-group"></i></div>
+        <h1>Arquiteto de Portfólio</h1>
+        <p class="text-muted">Não ponhas os ovos todos no mesmo cesto. A AI cria diversificação inteligente.</p>
+        
+        <div class="input-group mt-60">
+            <i class="fa-solid fa-wallet"></i>
+            <input type="number" id="strat-capital" placeholder="Capital Total (€)? (Ex: 5000)">
+        </div>
+        
+        <div class="input-group">
+            <i class="fa-solid fa-sliders"></i>
+            <select id="strat-risk" style="width:100%; padding:12px 12px 12px 45px; background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); border-radius:8px; color:white; outline:none;">
+                <option value="Conservador">🛡️ Conservador (Baixo Risco)</option>
+                <option value="Equilibrado" selected>⚖️ Equilibrado (Moderado)</option>
+                <option value="Agressivo">🚀 Agressivo (Alto Risco)</option>
+            </select>
+        </div>
+
+        <button class="btn-glow full-width mt-20" onclick="generatePortfolio()">Gerar Estratégia</button>
+        
+        <div id="strat-loading" class="hidden mt-20"><span class="loading">A calcular alocação de ativos...</span></div>
+        <div id="strat-result" class="hidden mt-20 text-left fade-in"></div>
+    </div>
+</div>
+
+<script>
+async function generatePortfolio() {
+    const capital = document.getElementById('strat-capital').value;
+    const risk = document.getElementById('strat-risk').value;
+    
+    if(!capital) { alert("Define o teu capital!"); return; }
+    
+    document.getElementById('strat-loading').classList.remove('hidden');
+    document.getElementById('strat-result').classList.add('hidden');
+
+    try {
+        const response = await fetch('/generate_portfolio', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ capital: capital, risk: risk })
+        });
+        const data = await response.json();
+        
+        const resultDiv = document.getElementById('strat-result');
+        let html = `<div class="glass" style="padding:20px; border:1px solid var(--neon-purple);">
+            <h3 class="text-center neon-text">Carteira ${risk}</h3>
+            <p class="text-center text-muted mb-20">${data.explanation}</p>
+            <ul class="market-list">`;
+            
+        data.allocation.forEach(item => {
+            html += `
+            <li style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                <span><b>${item.asset}</b> <small class="text-muted">(${item.pct}%)</small></span>
+                <span class="green">${item.value}</span>
+            </li>`;
+        });
+        
+        html += `</ul></div>`;
+        resultDiv.innerHTML = html;
+        document.getElementById('strat-loading').classList.add('hidden');
+        resultDiv.classList.remove('hidden');
+        
+    } catch(e) {
+        alert("Erro na AI.");
+        document.getElementById('strat-loading').classList.add('hidden');
+    }
+}
+</script>
+{% endblock %}

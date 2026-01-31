@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-container fade-in" style="max-width: 1000px; margin-top: 100px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
+        <a href="{{ url_for('crypto_page') }}" class="btn-outline" style="text-decoration:none;">
+            <i class="fa-solid fa-arrow-left"></i> Voltar
+        </a>
+        <h2 style="margin:0;"><i class="fa-solid fa-bolt"></i> Top Picks da AI</h2>
+    </div>
+
+    <div class="text-center mb-20">
+        <p class="text-muted">A AI varreu o mercado e encontrou estas oportunidades baseadas em momentum técnico.</p>
+        <button class="btn-glow" onclick="fetchRecommendations()">
+            <i class="fa-solid fa-rotate"></i> Atualizar Scanner
+        </button>
+    </div>
+
+    <div id="recs-loading" class="hidden text-center mt-60">
+        <span class="loading">A analisar 10,000 pares de moedas...</span>
+    </div>
+    
+    <div id="recs-grid" class="pricing-grid mt-20">
+        </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Opcional: Carregar automaticamente assim que abre
+        fetchRecommendations();
+    });
+</script>
+{% endblock %}

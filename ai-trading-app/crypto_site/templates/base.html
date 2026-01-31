@@ -9,9 +9,6 @@
 </head>
 <body>
 
-    <div class="stars"></div>
-    <div class="twinkling"></div>
-
     <nav class="navbar glass">
         <div class="nav-left">
             <a href="{{ url_for('home') }}" class="logo">
@@ -20,22 +17,38 @@
         </div>
         
         <div class="nav-right">
-            <a href="{{ url_for('crypto_page') }}" class="{{ 'active-link' if active_page == 'crypto' else '' }}">
-                Crypto
-            </a>
-            <a href="{{ url_for('etf_page') }}" class="{{ 'active-link' if active_page == 'etf' else '' }}">
-                ETFs
-            </a>
+            <div class="nav-dropdown-container">
+                <a href="{{ url_for('crypto_page') }}" class="nav-link {{ 'active-link' if active_page == 'crypto' else '' }}">
+                    Crypto <i class="fa-solid fa-chevron-down" style="font-size: 0.7em; margin-left: 5px;"></i>
+                </a>
+                <div class="nav-dropdown-content glass">
+                    <a href="{{ url_for('crypto_page') }}#ai-suite"><i class="fa-solid fa-robot"></i> TradingHelp</a>
+                    <a href="{{ url_for('crypto_page') }}#top-movers"><i class="fa-solid fa-layer-group"></i> Movimentos</a>
+                    <a href="{{ url_for('crypto_page') }}#top-20-market"><i class="fa-solid fa-list-ol"></i> Top 20</a>
+                </div>
+            </div>
+
+            <a href="{{ url_for('etf_page') }}" class="{{ 'active-link' if active_page == 'etf' else '' }}">ETFs</a>
             <a href="{{ url_for('screener_page') }}" class="{{ 'active-link' if active_page == 'screener' else '' }}">Screener</a>
             <a href="{{ url_for('ai_page') }}" class="{{ 'active-link' if active_page == 'ai' else '' }}">AI Analysis</a>
             <a href="{{ url_for('risk_page') }}" class="{{ 'active-link' if active_page == 'risk' else '' }}">Risk</a>
+            
              <div class="user-dropdown-container">
                 <div class="user-icon" onclick="toggleUserMenu()">
                     <i class="fa-regular fa-user"></i>
                 </div>
+                
                 <div id="user-menu" class="dropdown-content glass hidden">
-                    <a href="{{ url_for('login_page') }}">Login</a>
-                    <a href="#">Sign Up</a>
+                    {% if current_user.is_authenticated %}
+                        <div style="padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--neon-blue);">
+                            Olá, {{ current_user.name }}
+                        </div>
+                        <a href="#">Perfil</a>
+                        <a href="{{ url_for('logout') }}" style="color: #ff4d4d;">Sair <i class="fa-solid fa-right-from-bracket"></i></a>
+                    {% else %}
+                        <a href="{{ url_for('login_page') }}">Login</a>
+                        <a href="{{ url_for('signup_page') }}">Sign Up</a>
+                    {% endif %}
                 </div>
             </div>
         </div>

@@ -226,3 +226,201 @@ for (let i = 0; i < acc.length; i++) {
         } 
     });
 }
+
+// ==========================================
+// 5. NOVA LÓGICA DA PÁGINA CRYPTO
+// ==========================================
+
+async function analyzeUserCoin() {
+    const ticker = document.getElementById('user-ticker').value;
+    const investment = document.getElementById('user-investment').value;
+    
+    if(!ticker || !investment) {
+        alert("Preenche a moeda e o valor a investir!");
+        return;
+    }
+
+    // UI Loading
+    document.getElementById('analysis-loading').classList.remove('hidden');
+    document.getElementById('analysis-result').classList.add('hidden');
+
+    try {
+        const response = await fetch('/analyze_user_coin', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ ticker: ticker, investment: investment })
+        });
+        const data = await response.json();
+
+        if(data.error) {
+            alert(data.error);
+            document.getElementById('analysis-loading').classList.add('hidden');
+            return;
+        }
+
+        // Renderizar o Resultado com Estilo
+        const resultDiv = document.getElementById('analysis-result');
+        const colorClass = data.math.potential_profit.includes('-') ? 'red' : 'green';
+        
+        resultDiv.innerHTML = `
+            <div class="glass" style="padding: 20px; border: 1px solid var(--neon-purple);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 class="neon-text">${data.ticker}</h2>
+                    <span class="sentiment-badge">${data.verdict}</span>
+                </div>
+                
+                <p style="font-size: 1.1rem; margin: 15px 0;">"${data.explanation}"</p>
+                
+                <div class="stats-row" style="margin: 20px 0; gap: 15px;">
+                    <div class="stat-item" style="flex:1">
+                        <small>Entrada Ideal</small>
+                        <h3>${data.plan.entry}</h3>
+                    </div>
+                    <div class="stat-item" style="flex:1">
+                        <small style="color:var(--danger)">Stop Loss</small>
+                        <h3>${data.plan.stop}</h3>
+                    </div>
+                    <div class="stat-item" style="flex:1">
+                        <small style="color:var(--success)">Take Profit</small>
+                        <h3>${data.plan.target}</h3>
+                    </div>
+                </div>
+
+                <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin-top: 20px;">
+                    <h4>💰 Se investires €${investment}:</h4>
+                    <ul style="list-style:none; padding:0; margin-top:10px;">
+                        <li style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                            <span>Lucro Potencial:</span>
+                            <span class="green">${data.math.potential_profit} (ROI: ${data.math.roi})</span>
+                        </li>
+                        <li style="display:flex; justify-content:space-between;">
+                            <span>Perda Máxima (Stop):</span>
+                            <span class="red">${data.math.potential_loss}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('analysis-loading').classList.add('hidden');
+        resultDiv.classList.remove('hidden');
+        resultDiv.classList.add('fade-in');
+
+    } catch (e) {
+        console.error(e);
+        alert("Erro na ligação.");
+        document.getElementById('analysis-loading').classList.add('hidden');
+    }
+}
+
+async function fetchRecommendations() {
+    const grid = document.getElementById('recs-grid');
+    const loading = document.getElementById('recs-loading');
+    
+    loading.classList.remove('hidden');
+    grid.innerHTML = '';
+
+    try {
+        const response = await fetch('/get_recommendations');
+        const data = await response.json();
+
+        loading.classList.add('hidden');
+
+        if(data.length === 0) {
+            grid.innerHTML = '<p class="text-center">O mercado está difícil... sem recomendações seguras agora.</p>';
+            return;
+        }
+
+        data.forEach(coin => {
+            const card = document.createElement('div');
+            card.className = 'pricing-card glass-panel';
+            card.innerHTML = `
+                <div class="badge-popular" style="background: var(--neon-blue);">${coin.tag}</div>
+                <h3>${coin.ticker}</h3>
+                <div class="price" style="font-size: 2rem;">${coin.price}</div>
+                <p style="color: var(--success); margin-bottom: 20px;">${coin.change_5d} (5d)</p>
+                
+                <ul class="features-list" style="text-align:left;">
+                    <li>🎯 Alvo: <span class="green" style="float:right">${coin.target}</span></li>
+                    <li>🛑 Stop: <span class="red" style="float:right">${coin.stop}</span></li>
+                    <li>🚀 ROI Est.: <span class="green" style="float:right">${coin.roi}</span></li>
+                </ul>
+                <button class="btn-outline full-width">Ver Gráfico</button>
+            `;
+            grid.appendChild(card);
+        });
+
+    } catch (e) {
+        loading.classList.add('hidden');
+        grid.innerHTML = '<p>Erro ao buscar recomendações.</p>';
+    }
+}
+
+// ==========================================
+// LÓGICA DE TOP MOVERS & TOP 20 (CRYPTO PAGE)
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', () => {
+    if(document.getElementById('gainers-list')) {
+        loadCryptoPageData();
+    }
+});
+
+async function loadCryptoPageData() {
+    try {
+        const response = await fetch('/get_market_data');
+        const data = await response.json();
+        const cryptos = data.crypto;
+
+        // 1. PREENCHER TOP MOVERS (Gainers/Losers)
+        const sortedByChange = [...cryptos].sort((a, b) => b.change - a.change);
+        const gainers = sortedByChange.slice(0, 3);
+        const losers = sortedByChange.slice(sortedByChange.length - 3, sortedByChange.length).reverse();
+
+        renderMoverList('gainers-list', gainers);
+        renderMoverList('losers-list', losers);
+
+        // 2. PREENCHER TABELA TOP 20
+        // Assumimos que a lista já vem mais ou menos ordenada do backend ou ordenamos por preço
+        // Para ser "Top 20" real precisariamos de MarketCap, mas vamos usar a lista do backend
+        renderTop20Table(cryptos);
+
+    } catch (error) {
+        console.error("Erro ao carregar dados crypto:", error);
+    }
+}
+
+// (Função renderMoverList mantém-se igual...)
+function renderMoverList(elementId, data) {
+    const list = document.getElementById(elementId);
+    list.innerHTML = '';
+    data.forEach(item => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div class="asset-info"><span><b>${item.symbol}</b></span></div>
+            <div class="price-box">
+                <span class="price">$${item.price}</span>
+                <span class="change ${item.change >= 0 ? 'green' : 'red'}">${item.change >= 0 ? '+' : ''}${item.change}%</span>
+            </div>`;
+        list.appendChild(li);
+    });
+}
+
+// NOVA FUNÇÃO: Renderizar Tabela
+function renderTop20Table(data) {
+    const tbody = document.getElementById('top-20-body');
+    tbody.innerHTML = '';
+
+    data.forEach((item, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="rank-num">${index + 1}</td>
+            <td style="font-weight:bold; color:var(--neon-blue);">${item.symbol}</td>
+            <td class="text-right">$${item.price}</td>
+            <td class="text-right ${item.change >= 0 ? 'green' : 'red'}">
+                ${item.change >= 0 ? '▲' : '▼'} ${item.change}%
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
