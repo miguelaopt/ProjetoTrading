@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowTrade</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <nav>
+        <div class="logo">🟣 FlowTrade</div>
+        <div class="login-btn">Login</div>
+    </nav>
+
+    <div class="container">
+        <h1>Welcome back, Trader.</h1>
+        <p class="subtitle">Your command center is ready.</p>
+
+        <div class="dropdown-section">
+            <button onclick="toggleCrypto()" class="main-btn">
+                🪙 Live Crypto Market <span id="arrow">▼</span>
+            </button>
+            
+            <div id="crypto-panel" class="hidden">
+                <div id="loading">Scanning Blockchain...</div>
+                
+                <div class="market-grid">
+                    <div class="list-container">
+                        <h3>Market Prices</h3>
+                        <ul id="coin-list"></ul>
+                    </div>
+                    
+                    <div class="stats-container">
+                        <h3>24h Performance</h3>
+                        <div class="stat-card">
+                            <span class="label">🚀 Top Gainer</span>
+                            <span id="best-coin" class="value">--</span>
+                        </div>
+                        <div class="stat-card">
+                            <span class="label">📉 Top Loser</span>
+                            <span id="worst-coin" class="value">--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="ai-section">
+            <button onclick="askAI()" class="ai-btn">🤖 Generate AI Report</button>
+            <div id="ai-result" class="hidden">
+                <p id="ai-text">Analyzing...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let marketData = [];
+
+        async function toggleCrypto() {
+            const panel = document.getElementById('crypto-panel');
+            panel.classList.toggle('hidden');
+            
+            if (!panel.classList.contains('hidden')) {
+                const response = await fetch('/get_crypto');
+                const data = await response.json();
+                marketData = data; // Save for AI
+                renderCrypto(data);
+            }
+        }
+
+        function renderCrypto(data) {
+            document.getElementById('loading').style.display = 'none';
+            const list = document.getElementById('coin-list');
+            list.innerHTML = '';
+            
+            // Populate List
+            data.forEach(coin => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span class="coin-name">${coin.symbol}</span>
+                    <span class="coin-price">$${coin.price}</span>
+                    <span class="${coin.change >= 0 ? 'green' : 'red'}">${coin.change}%</span>
+                `;
+                list.appendChild(li);
+            });
+
+            // Find Best/Worst
+            const sorted = [...data].sort((a, b) => b.change - a.change);
+            const best = sorted[0];
+            const worst = sorted[sorted.length - 1];
+
+            document.getElementById('best-coin').innerHTML = `${best.symbol} <span class="green">${best.change}%</span>`;
+            document.getElementById('worst-coin').innerHTML = `${worst.symbol} <span class="red">${worst.change}%</span>`;
+        }
+
+        async function askAI() {
+            const resultBox = document.getElementById('ai-result');
+            const resultText = document.getElementById('ai-text');
+            resultBox.classList.remove('hidden');
+            resultText.innerText = "🤖 Reading market data...";
+
+            const response = await fetch('/ask_ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ context: JSON.stringify(marketData) })
+            });
+            
+            const data = await response.json();
+            // Convert markdown stars to bold for simple display
+            resultText.innerHTML = data.advice.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
+        }
+    </script>
+</body>
+</html>
