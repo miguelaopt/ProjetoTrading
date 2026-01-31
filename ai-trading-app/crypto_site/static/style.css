@@ -414,3 +414,90 @@ body {
     .home-markets-grid { grid-template-columns: 1fr; }
     .ticker-item { margin-right: 20px; font-size: 0.9rem; }
 }
+
+/* --- SECÇÕES GERAIS --- */
+.section-container { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
+.mt-100 { margin-top: 100px; }
+.mb-100 { margin-bottom: 100px; }
+.text-center { text-align: center; }
+
+.section-header h2 { font-size: 2.5rem; margin-bottom: 10px; }
+.section-header p { color: var(--text-muted); font-size: 1.1rem; margin-bottom: 50px; }
+
+/* --- STEPS GRID (Como Funciona) --- */
+.steps-grid {
+    display: flex; align-items: center; justify-content: center; gap: 20px;
+}
+
+.step-card {
+    flex: 1; text-align: center; padding: 30px 20px; position: relative;
+    border: 1px solid rgba(255,255,255,0.05); min-height: 250px;
+}
+
+.step-number {
+    font-size: 3rem; font-weight: 900; color: rgba(255,255,255,0.05);
+    position: absolute; top: 10px; right: 20px;
+}
+
+.step-card h3 { color: var(--neon-blue); margin-top: 10px; }
+
+.arrow-connector { font-size: 1.5rem; color: var(--text-muted); opacity: 0.5; }
+
+/* --- TESTIMONIALS --- */
+.testimonials-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px;
+}
+
+.testimonial-card { text-align: left; position: relative; }
+.testimonial-card .stars { color: #f1c40f; margin-bottom: 15px; letter-spacing: 2px; }
+.testimonial-card p { font-style: italic; color: #ccc; margin-bottom: 25px; line-height: 1.6; }
+
+.user-profile { display: flex; align-items: center; gap: 15px; }
+.avatar-circle {
+    width: 40px; height: 40px; background: var(--neon-purple); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-weight: bold;
+}
+.user-profile strong { display: block; color: white; }
+.user-profile span { font-size: 0.8rem; color: var(--text-muted); }
+
+/* --- FAQ (Accordion) --- */
+.faq-container { max-width: 800px; margin: 0 auto; padding: 10px 30px; }
+
+.faq-item { border-bottom: 1px solid rgba(255,255,255,0.05); }
+.faq-item:last-child { border-bottom: none; }
+
+.faq-question {
+    width: 100%; background: none; border: none; color: white;
+    padding: 20px 0; text-align: left; font-size: 1.1rem; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.faq-question:hover { color: var(--neon-blue); }
+
+.faq-answer {
+    max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out;
+    color: var(--text-muted); line-height: 1.6;
+}
+.faq-answer p { margin-bottom: 20px; }
+
+/* --- CTA BANNER --- */
+.cta-banner {
+    max-width: 900px; margin: 100px auto; text-align: center;
+    padding: 50px; border: 1px solid var(--neon-purple);
+    background: linear-gradient(45deg, rgba(20,10,30,0.8), rgba(188,19,254,0.1));
+}
+
+.newsletter-form {
+    display: flex; gap: 10px; justify-content: center; margin-top: 30px;
+    flex-wrap: wrap;
+}
+.newsletter-form input {
+    padding: 12px 20px; width: 300px; border-radius: 30px; border: none;
+    outline: none; background: rgba(255,255,255,0.9);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .steps-grid { flex-direction: column; }
+    .arrow-connector { transform: rotate(90deg); margin: 10px 0; }
+    .newsletter-form input { width: 100%; }
+}

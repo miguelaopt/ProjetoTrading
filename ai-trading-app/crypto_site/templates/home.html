@@ -28,8 +28,22 @@
 </div>
 
 <div class="ticker-container-inline">
-    <div class="ticker-track" id="home-ticker">
-        <div class="ticker-item">A carregar mercado...</div>
+    <div class="ticker-track">
+        {% for item in ticker_data %}
+        <div class="ticker-item">
+            <span class="ticker-symbol">{{ item.symbol }}</span>
+            <span class="ticker-price">${{ item.price }}</span>
+            <span class="ticker-change {{ item.color }}">{{ item.sign }}{{ item.change }}%</span>
+        </div>
+        {% endfor %}
+        
+        {% for item in ticker_data %}
+        <div class="ticker-item">
+            <span class="ticker-symbol">{{ item.symbol }}</span>
+            <span class="ticker-price">${{ item.price }}</span>
+            <span class="ticker-change {{ item.color }}">{{ item.sign }}{{ item.change }}%</span>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
@@ -53,7 +67,7 @@
 
 <div class="chart-section-container glass-panel fade-in">
     <div class="chart-header">
-        <h3><i class="fa-solid fa-chart-area"></i> Visão Geral do Mercado (BTC/SPY)</h3>
+        <h3><i class="fa-solid fa-chart-area"></i> Visão Geral (BTC vs SPY)</h3>
         <div class="live-indicator"><span class="blink">●</span> LIVE</div>
     </div>
     <div id="mainChart"></div>
@@ -62,14 +76,13 @@
 <div class="section-divider"></div>
 
 <div class="home-markets-grid">
-    
     <div class="market-col glass-panel">
         <div class="col-header-home">
             <h2><i class="fa-brands fa-bitcoin"></i> Top Crypto</h2>
             <a href="{{ url_for('crypto_page') }}" class="see-more">Ver Tudo <i class="fa-solid fa-arrow-right"></i></a>
         </div>
         <ul id="home-crypto-list" class="market-list home-list">
-            <li><span class="loading">A sincronizar...</span></li>
+            <li><span class="loading">A sincronizar blockchain...</span></li>
         </ul>
     </div>
 
@@ -79,14 +92,151 @@
             <a href="{{ url_for('etf_page') }}" class="see-more">Ver Tudo <i class="fa-solid fa-arrow-right"></i></a>
         </div>
         <ul id="home-etf-list" class="market-list home-list">
-            <li><span class="loading">A sincronizar...</span></li>
+            <li><span class="loading">A sincronizar Wall Street...</span></li>
         </ul>
     </div>
+</div>
 
+<div class="section-container fade-in">
+    <div class="section-header text-center">
+        <h2>Do Caos à <span class="neon-text">Clareza</span> em 3 Passos</h2>
+        <p>Não precisas de ser um expert. Deixa a nossa AI fazer o trabalho pesado.</p>
+    </div>
+
+    <div class="steps-grid">
+        <div class="step-card glass-panel">
+            <div class="step-number">01</div>
+            <h3>O Scanner Deteta</h3>
+            <p>Os nossos algoritmos varrem 10.000+ ativos à procura de anomalias e momentum.</p>
+        </div>
+        <div class="arrow-connector"><i class="fa-solid fa-chevron-right"></i></div>
+        <div class="step-card glass-panel">
+            <div class="step-number">02</div>
+            <h3>A AI Analisa</h3>
+            <p>O Gemini cruza dados técnicos e notícias para validar a qualidade do trade.</p>
+        </div>
+        <div class="arrow-connector"><i class="fa-solid fa-chevron-right"></i></div>
+        <div class="step-card glass-panel">
+            <div class="step-number">03</div>
+            <h3>Tu Executas</h3>
+            <p>Recebes o plano completo: Entrada, Stop Loss e Take Profit. Tu decides.</p>
+        </div>
+    </div>
+</div>
+
+<div class="section-container mt-100 fade-in">
+    <div class="section-header text-center">
+        <h2>O Que Dizem os <span class="neon-text">Traders</span></h2>
+    </div>
+    
+    <div class="testimonials-grid">
+        <div class="testimonial-card glass-panel">
+            <div class="stars">★★★★★</div>
+            <p>"A ferramenta de gestão de risco salvou-me de perder 30% da conta numa queda de BTC. Essencial."</p>
+            <div class="user-profile">
+                <div class="avatar-circle">M</div>
+                <div>
+                    <strong>Miguel S.</strong>
+                    <span>Crypto Trader</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="testimonial-card glass-panel">
+            <div class="stars">★★★★★</div>
+            <p>"Uso o Smart Screener todos os dias antes do mercado abrir. Poupa-me 2 horas de análise."</p>
+            <div class="user-profile">
+                <div class="avatar-circle">A</div>
+                <div>
+                    <strong>Ana P.</strong>
+                    <span>Day Trader</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="testimonial-card glass-panel">
+            <div class="stars">★★★★☆</div>
+            <p>"A interface é incrível. Finalmente um site financeiro que não parece uma folha de Excel dos anos 90."</p>
+            <div class="user-profile">
+                <div class="avatar-circle">R</div>
+                <div>
+                    <strong>Ricardo L.</strong>
+                    <span>Investidor ETF</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section-container mt-100 mb-100 fade-in">
+    <div class="section-header text-center">
+        <h2>Perguntas <span class="neon-text">Frequentes</span></h2>
+    </div>
+    
+    <div class="faq-container glass-panel">
+        <div class="faq-item">
+            <button class="faq-question">O FlowTrade faz trades por mim? <i class="fa-solid fa-plus"></i></button>
+            <div class="faq-answer">
+                <p>Não. Nós fornecemos a inteligência e os dados. A decisão final e a execução na tua corretora são sempre tuas.</p>
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">Preciso de saber programar? <i class="fa-solid fa-plus"></i></button>
+            <div class="faq-answer">
+                <p>Zero. O FlowTrade é feito para ser visual e intuitivo. Se sabes clicar num botão, sabes usar a nossa AI.</p>
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question">É grátis? <i class="fa-solid fa-plus"></i></button>
+            <div class="faq-answer">
+                <p>Estamos em fase Beta gratuita! No futuro teremos planos Premium, mas os utilizadores Beta terão vantagens vitalícias.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="cta-banner glass-panel fade-in">
+    <div class="cta-content">
+        <h2>Junta-te à Elite do Trading</h2>
+        <p>Recebe o nosso "Relatório Semanal de Mercado" diretamente no teu email.</p>
+        <form class="newsletter-form">
+            <input type="email" placeholder="O teu melhor email...">
+            <button type="button" class="btn-glow">Subscrever Grátis</button>
+        </form>
+    </div>
 </div>
 
 <footer class="pro-footer">
-    <div class="copyright">&copy; 2026 FlowTrade Inc.</div>
+    <div class="footer-content">
+        <div class="footer-col">
+            <h4><i class="fa-solid fa-meteor"></i> FlowTrade</h4>
+            <p>A plataforma definitiva para traders que combinam dados, AI e disciplina.</p>
+        </div>
+        <div class="footer-col">
+            <h4>Plataforma</h4>
+            <a href="{{ url_for('crypto_page') }}">Mercado Crypto</a>
+            <a href="{{ url_for('etf_page') }}">Mercado ETFs</a>
+            <a href="{{ url_for('ai_page') }}">AI Tools</a>
+        </div>
+        <div class="footer-col">
+            <h4>Legal</h4>
+            <a href="#">Termos de Uso</a>
+            <a href="#">Política de Privacidade</a>
+            <a href="#">Risco e Disclaimer</a>
+        </div>
+        <div class="footer-col">
+            <h4>Social</h4>
+            <div class="social-icons">
+                <i class="fa-brands fa-twitter"></i>
+                <i class="fa-brands fa-discord"></i>
+                <i class="fa-brands fa-instagram"></i>
+                <i class="fa-brands fa-github"></i>
+            </div>
+        </div>
+    </div>
+    <div class="copyright">
+        &copy; 2026 FlowTrade Inc. Todos os direitos reservados.
+    </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
@@ -94,23 +244,24 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // 1. Iniciar Scroll Fluido
+        // 1. Scroll Fluido (Lenis)
         const lenis = new Lenis({
             duration: 1.2,
             easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
             smooth: true
         });
-        function raf(time) {
-            lenis.raf(time);
-            requestAnimationFrame(raf);
-        }
+        function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
         requestAnimationFrame(raf);
 
-        // 2. Carregar Dados da Home (Ticker e Tabelas)
-        loadHomeData();
-
-        // 3. Renderizar Gráfico Demo
-        renderHomeChart();
+        // 2. Carregar apenas as Tabelas (Ticker já veio do Python)
+        if(typeof loadHomeDataTablesOnly === 'function') {
+            loadHomeDataTablesOnly();
+        }
+        
+        // 3. Renderizar Gráfico
+        if(typeof renderHomeChart === 'function') {
+            renderHomeChart();
+        }
     });
 </script>
 {% endblock %}
