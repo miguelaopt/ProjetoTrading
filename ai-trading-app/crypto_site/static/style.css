@@ -50,7 +50,7 @@ body::before {
     z-index: -2;
     
     /* A TUA IMAGEM AQUI */
-    background: url('bg-grain.jpg') no-repeat center center;
+    background: url('gradient3.jpg') no-repeat center center;
     background-size: cover;
     
     /* O BLUR (Desfoque) NA IMAGEM DE FUNDO */
