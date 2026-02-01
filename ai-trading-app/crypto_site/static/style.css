@@ -1108,3 +1108,50 @@ select option {
     .desktop-only { display: none !important; } /* Esconde o menu de PC */
     .navbar { padding: 15px 20px; justify-content: space-between; }
 }
+
+/* --- TOAST NOTIFICATIONS (Substitui os Flash antigos) --- */
+#toast-container {
+    position: fixed; top: 20px; right: 20px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 10px;
+}
+.toast {
+    background: rgba(10, 5, 20, 0.95); border: 1px solid var(--neon-blue);
+    color: white; padding: 15px 20px; border-radius: 8px; min-width: 250px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    animation: slideInRight 0.3s ease-out forwards;
+    display: flex; align-items: center; justify-content: space-between;
+}
+.toast.success { border-color: var(--success); }
+.toast.error { border-color: var(--danger); }
+@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* --- SKELETON LOADING (Animação de Carregamento) --- */
+.skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 4px; height: 20px; margin-bottom: 10px;
+}
+.skeleton-text { width: 100%; }
+.skeleton-title { width: 60%; height: 24px; }
+@keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* --- NEWS FEED WIDGET --- */
+.news-widget {
+    position: fixed; bottom: 20px; right: 20px; width: 300px;
+    background: rgba(0,0,0,0.8); backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border); border-radius: 12px;
+    padding: 15px; z-index: 100; transition: 0.3s;
+    max-height: 400px; overflow-y: auto; display: none; /* Escondido por defeito */
+}
+.news-widget.active { display: block; }
+.news-item { border-bottom: 1px solid rgba(255,255,255,0.1); padding: 10px 0; }
+.news-item a { color: #ddd; text-decoration: none; font-size: 0.85rem; }
+.news-item a:hover { color: var(--neon-blue); }
+.news-toggle-btn {
+    position: fixed; bottom: 20px; right: 20px;
+    width: 50px; height: 50px; border-radius: 50%;
+    background: var(--neon-blue); color: black; border: none;
+    cursor: pointer; z-index: 101; font-size: 1.2rem;
+    box-shadow: 0 0 15px var(--neon-blue);
+}

@@ -449,3 +449,76 @@ function renderTop20Table(data) {
         tbody.appendChild(row);
     });
 }
+
+// --- TOASTS SYSTEM ---
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `<span>${message}</span> <i class="fa-solid fa-check"></i>`;
+    container.appendChild(toast);
+    
+    // Remover após 3 segundos
+    setTimeout(() => { toast.remove(); }, 3000);
+}
+
+// Interceptar Flashed Messages do Flask e converter em Toasts (Opcional, se quiseres manter compatibilidade)
+// Podes adicionar isto no base.html num script tag para ler as mensagens antigas
+
+// --- NEWS FEED ---
+function toggleNews() {
+    const widget = document.getElementById('news-feed');
+    widget.classList.toggle('active');
+    
+    if (widget.classList.contains('active')) {
+        loadNews();
+    }
+}
+
+async function loadNews() {
+    const content = document.getElementById('news-content');
+    // Mantém o skeleton se estiver vazio
+    if(content.children.length > 3) return; // Já carregou
+
+    try {
+        const response = await fetch('/api/news');
+        const data = await response.json();
+        
+        content.innerHTML = ''; // Limpar skeletons
+        data.news.forEach(item => {
+            content.innerHTML += `
+                <div class="news-item">
+                    <a href="${item.link}" target="_blank">${item.title}</a>
+                    <div style="font-size:0.7rem; color:gray; margin-top:4px;">${new Date(item.published).toLocaleTimeString()}</div>
+                </div>
+            `;
+        });
+    } catch (e) {
+        content.innerHTML = '<p class="text-red">Erro ao carregar notícias.</p>';
+    }
+}
+
+// --- WATCHLIST TOGGLE ---
+async function toggleWatchlist(ticker, btnElement) {
+    try {
+        const response = await fetch(`/toggle_watchlist/${ticker}`);
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            showToast(data.message, 'success');
+            // Mudar ícone visualmente
+            const icon = btnElement.querySelector('i');
+            if (data.action === 'added') {
+                icon.classList.remove('fa-regular');
+                icon.classList.add('fa-solid');
+                icon.style.color = '#f1c40f';
+            } else {
+                icon.classList.remove('fa-solid');
+                icon.classList.add('fa-regular');
+                icon.style.color = '';
+            }
+        }
+    } catch (e) {
+        showToast('Erro ao atualizar favoritos', 'error');
+    }
+}

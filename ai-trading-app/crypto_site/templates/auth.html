@@ -6,22 +6,27 @@
         <h2>
             {% if mode == 'login' %}
                 <i class="fa-solid fa-right-to-bracket"></i> Login
+            {% elif mode == 'forgot' %}
+                <i class="fa-solid fa-key"></i> Recuperar
             {% else %}
                 <i class="fa-solid fa-user-plus"></i> Registar
             {% endif %}
         </h2>
 
-        {% with messages = get_flashed_messages() %}
+        {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div style="background: rgba(255, 0, 0, 0.2); border: 1px solid red; padding: 10px; border-radius: 10px; margin-bottom: 20px;">
-                    {% for message in messages %}
-                        <p style="color: #ffcccc; margin: 0;">{{ message }}</p>
-                    {% endfor %}
+                {% for category, message in messages %}
+                <div class="alert {{ category }}">
+                    {{ message }}
                 </div>
+                {% endfor %}
             {% endif %}
         {% endwith %}
         
-        <form method="POST" action="{{ url_for('login_page' if mode == 'login' else 'register_page') }}">
+        <form method="POST" action="{{ 
+            url_for('forgot_password') if mode == 'forgot' 
+            else (url_for('login_page') if mode == 'login' else url_for('register_page')) 
+        }}">
             
             {% if mode == 'signup' %}
             <div class="input-group">
@@ -34,23 +39,42 @@
                 <i class="fa-regular fa-envelope"></i>
                 <input type="email" name="email" placeholder="Email" required>
             </div>
+
+            {% if mode != 'forgot' %}
             <div class="input-group">
                 <i class="fa-solid fa-lock"></i>
                 <input type="password" name="password" placeholder="Password" required>
             </div>
+            {% endif %}
             
+            {% if mode == 'login' %}
+            <div style="text-align: right; margin-top: 5px; margin-bottom: 15px;">
+                <a href="{{ url_for('forgot_password') }}" style="color: #bdc3c7; font-size: 0.8rem; text-decoration: none;">
+                    Esqueceu-se da password?
+                </a>
+            </div>
+            {% endif %}
+
             <button type="submit" class="btn-glow full-width">
-                {% if mode == 'login' %} Entrar {% else %} Criar Conta {% endif %}
+                {% if mode == 'login' %} 
+                    Entrar 
+                {% elif mode == 'forgot' %} 
+                    Enviar Link de Recuperação 
+                {% else %} 
+                    Criar Conta 
+                {% endif %}
             </button>
         </form>
 
         <p class="auth-footer">
-    {% if mode == 'login' %}
-        Ainda não tens conta? <a href="{{ url_for('register_page') }}">Regista-te</a>
-    {% else %}
-        Já tens conta? <a href="{{ url_for('login_page') }}">Faz Login</a>
-    {% endif %}
-</p>
+            {% if mode == 'login' %}
+                Ainda não tens conta? <a href="{{ url_for('register_page') }}">Regista-te</a>
+            {% elif mode == 'forgot' %}
+                Lembrou-se? <a href="{{ url_for('login_page') }}">Voltar ao Login</a>
+            {% else %}
+                Já tens conta? <a href="{{ url_for('login_page') }}">Faz Login</a>
+            {% endif %}
+        </p>
     </div>
 </div>
 {% endblock %}

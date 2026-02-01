@@ -190,5 +190,24 @@
             document.getElementById('cookie-banner').style.display = 'none';
         }
     </script>
+
+<div id="toast-container"></div>
+
+<button class="news-toggle-btn" onclick="toggleNews()" title="Crypto News">
+    <i class="fa-solid fa-newspaper"></i>
+</button>
+
+<div id="news-feed" class="news-widget">
+    <h4 style="margin-bottom:15px; display:flex; justify-content:space-between;">
+        <span>🔥 Market News</span>
+        <i class="fa-solid fa-xmark" onclick="toggleNews()" style="cursor:pointer;"></i>
+    </h4>
+    <div id="news-content">
+        <div class="skeleton skeleton-title"></div>
+        <div class="skeleton skeleton-text"></div>
+        <div class="skeleton skeleton-text"></div>
+    </div>
+</div>
+
 </body>
 </html>

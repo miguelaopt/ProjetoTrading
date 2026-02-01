@@ -117,23 +117,35 @@
         <div class="glass-panel">
             <h3 class="mb-20"><i class="fa-solid fa-layer-group"></i> Movimentos do Dia</h3>
             <div class="home-markets-grid" style="margin:0; padding:0; gap:20px;">
-                <div>
-                    <h4 class="green"><i class="fa-solid fa-arrow-trend-up"></i> Top Gainers</h4>
-                    <ul id="gainers-list" class="market-list">
-                        <li><span>SOL</span> <span class="green">+5.4%</span></li>
-                        <li><span>AVAX</span> <span class="green">+3.2%</span></li>
-                        <li><span>LINK</span> <span class="green">+2.1%</span></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="red"><i class="fa-solid fa-arrow-trend-down"></i> Top Losers</h4>
-                    <ul id="losers-list" class="market-list">
-                        <li><span>DOGE</span> <span class="red">-2.1%</span></li>
-                        <li><span>PEPE</span> <span class="red">-4.5%</span></li>
-                        <li><span>XRP</span> <span class="red">-1.2%</span></li>
-                    </ul>
-                </div>
-            </div>
+    
+    <div>
+        <h4 class="green"><i class="fa-solid fa-arrow-trend-up"></i> Top Gainers</h4>
+        <ul id="gainers-list" class="market-list">
+            {% for coin in gainers %}
+            <li>
+                <span>{{ coin.symbol }}</span> 
+                <span class="green">+{{ "{:.2f}".format(coin.change) }}%</span>
+            </li>
+            {% else %}
+            <li><small class="text-muted">A carregar dados...</small></li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <div>
+        <h4 class="red"><i class="fa-solid fa-arrow-trend-down"></i> Top Losers</h4>
+        <ul id="losers-list" class="market-list">
+            {% for coin in losers %}
+            <li>
+                <span>{{ coin.symbol }}</span> 
+                <span class="red">{{ "{:.2f}".format(coin.change) }}%</span>
+            </li>
+            {% else %}
+            <li><small class="text-muted">A carregar dados...</small></li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
         </div>
     </div>
     <div class="section-divider"></div>

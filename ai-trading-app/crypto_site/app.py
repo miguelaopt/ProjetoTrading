@@ -12,33 +12,41 @@ from dotenv import load_dotenv
 import requests
 from flask_caching import Cache
 
+# NOVAS IMPORTAÇÕES PARA O EMAIL
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
 
 # --- CONFIGURAÇÃO INICIAL ---
 
-# Carregar variáveis de ambiente (Força UTF-8 para evitar erro no Windows)
 load_dotenv(encoding="utf-8")
 
 app = Flask(__name__)
 
-# CONFIGURAÇÃO DE CACHE (Memória Simples)
+# 1. DEFINIR A SECRET_KEY (MUITO IMPORTANTE: TEM DE SER A PRIMEIRA COISA)
+app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "chave-secreta-padrao-123")
+
+# 2. CONFIGURAR O EMAIL
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
+
+# 3. INICIALIZAR EXTENSÕES (Só agora que a SECRET_KEY já existe)
+mail = Mail(app)
+# Este comando falhava porque a SECRET_KEY ainda não existia nas linhas anteriores
+token_serializer = URLSafeTimedSerializer(app.config['SECRET_KEY']) 
+
 cache = Cache(app, config={'CACHE_TYPE': 'SimpleCache', 'CACHE_DEFAULT_TIMEOUT': 60})
 
-# Configuração da Chave Secreta e API
-app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "chave-secreta-padrao")
+# Configuração da AI
 API_KEY = os.getenv("GENAI_API_KEY")
-
-if not API_KEY:
-    print("⚠️ AVISO: GENAI_API_KEY não encontrada no .env")
-
-# Cliente Google Gemini
 if API_KEY:
     client = genai.Client(api_key=API_KEY)
 
 # Configuração da Base de Dados
-# Tenta usar a do .env, senão usa SQLite local por defeito
 database_url = os.getenv("DATABASE_URL", "sqlite:///db.sqlite")
-
-# Correção para PostgreSQL no Render (se usares no futuro)
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
 
@@ -51,6 +59,11 @@ login_manager.login_view = 'login_page'
 login_manager.init_app(app)
 
 # --- MODELOS DA BASE DE DADOS (ATUALIZADOS) ---
+class Watchlist(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    symbol = db.Column(db.String(20), nullable=False)
+
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -60,6 +73,7 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100))
     avatar = db.Column(db.String(50), default='fa-user')
     special_role = db.Column(db.String(50), nullable=True)
+    watchlist = db.relationship('Watchlist', backref='owner', lazy=True)
 
     
     # Paper Trading: Saldo Virtual (Começa com 10k)
@@ -181,6 +195,59 @@ def leaderboard_page():
     
     return render_template('leaderboard.html', ranking=leaderboard_data, active_page='leaderboard')
 
+# 1. Rota que pede o email e envia o link
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            # Gerar token seguro (expira em 30 min)
+            token = token_serializer.dumps(user.email, salt='recover-key')
+            
+            # Criar link de recuperação
+            link = url_for('reset_password', token=token, _external=True)
+            
+            # Enviar Email
+            msg = Message('Recuperar Password - FlowTrade', recipients=[email])
+            msg.body = f'FlowTraders - Galaxy. Esqueceste-te da password? Clica neste link para mudares a password: {link}\nO link expira em 30 minutos.'
+            try:
+                mail.send(msg)
+                flash('Email de recuperação enviado! Verifica a caixa de spam.', 'success')
+            except Exception as e:
+                flash(f'Erro ao enviar email: {e}', 'error')
+        else:
+            flash('Email não encontrado.', 'error')
+            
+        return redirect(url_for('login_page'))
+        
+    return render_template('auth.html', mode='forgot')
+
+
+# 2. Rota que recebe o token e muda a password
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try:
+        # Verificar se o token é válido e tem menos de 30 min (1800 segundos)
+        email = token_serializer.loads(token, salt='recover-key', max_age=1800)
+    except:
+        flash('O link é inválido ou expirou.', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        password = request.form.get('password')
+        user = User.query.filter_by(email=email).first_or_404()
+        
+        # Mudar a password
+        user.password = generate_password_hash(password, method='pbkdf2:sha256')
+        db.session.commit()
+        
+        flash('Password alterada com sucesso! Podes entrar.', 'success')
+        return redirect(url_for('login_page'))
+        
+    return render_template('reset_password.html', token=token)
+
 @app.route('/trader/<username>')
 @login_required
 def public_profile(username):
@@ -209,6 +276,93 @@ def public_profile(username):
                            pnl=pnl, 
                            portfolio=portfolio_list,
                            badges=badges) # <--- Envia badges para o HTML
+
+@app.route('/toggle_watchlist/<ticker>')
+@login_required
+def toggle_watchlist(ticker):
+    ticker = ticker.upper()
+    exists = Watchlist.query.filter_by(user_id=current_user.id, symbol=ticker).first()
+    
+    if exists:
+        db.session.delete(exists)
+        msg = f"{ticker} removido dos favoritos."
+        action = "removed"
+    else:
+        new_item = Watchlist(user_id=current_user.id, symbol=ticker)
+        db.session.add(new_item)
+        msg = f"{ticker} adicionado aos favoritos."
+        action = "added"
+    
+    db.session.commit()
+    # Retorna JSON para o JavaScript usar nos Toasts
+    return {"status": "success", "message": msg, "action": action}
+
+
+@app.route('/api/news')
+@cache.cached(timeout=300) # Cache de 5 min para não bloquear
+def get_crypto_news():
+    try:
+        # Feed RSS do Cointelegraph (Grátis)
+        feed = feedparser.parse("https://cointelegraph.com/rss")
+        news = []
+        for entry in feed.entries[:5]: # Pegar apenas as 5 últimas
+            news.append({
+                'title': entry.title,
+                'link': entry.link,
+                'published': entry.published
+            })
+        return {"news": news}
+    except:
+        return {"news": []}
+    
+
+@app.route('/copy_trade/<target_username>')
+@login_required
+def copy_trade(target_username):
+    target_user = User.query.filter_by(username=target_username).first_or_404()
+    
+    if target_user.id == current_user.id:
+        flash("Não podes copiar-te a ti mesmo!", "error")
+        return redirect(url_for('leaderboard_page'))
+
+    # Lógica Simplificada: Vende tudo e compra igual ao alvo
+    # 1. Limpar portfolio atual (Venda total simulada)
+    current_value = current_user.virtual_balance
+    for item in current_user.portfolio:
+        # Assumindo preço médio como venda para simplificar este exemplo
+        current_value += (item.amount * item.avg_price)
+        db.session.delete(item)
+    
+    current_user.virtual_balance = current_value # Saldo agora é 100% Cash
+    
+    # 2. Copiar estrutura do Alvo
+    target_total_worth = target_user.virtual_balance
+    for item in target_user.portfolio:
+        target_total_worth += (item.amount * item.avg_price)
+    
+    # Se o alvo tiver só cash, não fazemos nada
+    if target_total_worth <= 0: return redirect(url_for('profile_page'))
+
+    # Comprar proporções
+    for item in target_user.portfolio:
+        item_val = item.amount * item.avg_price
+        weight = item_val / target_total_worth # % da carteira
+        
+        invest_amount = current_value * weight
+        if invest_amount > 10: # Mínimo $10
+            # Adicionar ao meu portfolio
+            new_pos = Portfolio(
+                user_id=current_user.id,
+                symbol=item.symbol,
+                amount=invest_amount / item.avg_price, # Preço de entrada igual ao do alvo (simulado)
+                avg_price=item.avg_price
+            )
+            db.session.add(new_pos)
+            current_user.virtual_balance -= invest_amount
+
+    db.session.commit()
+    flash(f"Carteira de {target_username} copiada com sucesso!", "success")
+    return redirect(url_for('paper_trading'))
 
 def smart_format(value):
     if value is None: return "$0.00"
@@ -249,6 +403,46 @@ def get_market_sentiment():
     except:
         # Fallback se a API falhar
         return {"value": 50, "text": "Neutral (Offline)"}
+
+def get_market_movers():
+    # Lista de moedas populares para monitorizar
+    tickers = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD', 'AVAX-USD', 'LINK-USD', 'SHIB-USD', 'DOT-USD']
+    
+    movers_data = []
+    
+    try:
+        # Tenta buscar dados em massa (mais rápido)
+        tickers_str = " ".join(tickers)
+        data = yf.download(tickers_str, period="2d", progress=False)['Close']
+        
+        # Calcular variação para cada moeda
+        for t in tickers:
+            try:
+                # O yfinance às vezes devolve MultiIndex, precisamos tratar
+                current = data[t].iloc[-1]
+                prev = data[t].iloc[-2]
+                change = ((current - prev) / prev) * 100
+                symbol = t.replace('-USD', '')
+                
+                movers_data.append({
+                    'symbol': symbol,
+                    'change': change,
+                    'price': current
+                })
+            except:
+                continue
+                
+        # Ordenar: Gainers (maior para menor) e Losers (menor para maior)
+        movers_data.sort(key=lambda x: x['change'], reverse=True)
+        
+        gainers = movers_data[:3] # Top 3
+        losers = movers_data[-3:] # Bottom 3 (estão no fim da lista)
+        losers.sort(key=lambda x: x['change']) # Reordenar para mostrar o pior primeiro
+        
+        return gainers, losers
+    except Exception as e:
+        print(f"Erro movers: {e}")
+        return [], []
 
 @cache.memoize(timeout=120) # Guarda o resultado por 2 minutos
 def get_top_cryptos(limit=5):
@@ -341,10 +535,18 @@ def home():
                            ticker_data=ticker_data)
 
 @app.route('/crypto')
+@login_required
+@cache.cached(timeout=60) # Cache importante aqui!
 def crypto_page():
+    # Buscar Gainers e Losers Reais
+    gainers, losers = get_market_movers()
     # Agora a página crypto carrega as Top 20 reais
     top_20 = get_top_cryptos(limit=20)
-    return render_template('crypto.html', active_page='crypto', market_data=top_20)
+    return render_template('crypto.html', 
+                           market_data=get_top_cryptos(), # A tua função antiga
+                           gainers=gainers, 
+                           losers=losers, 
+                           active_page='crypto')
 
 @app.route('/crypto/analyze')
 @login_required
