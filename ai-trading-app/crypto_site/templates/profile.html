@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .profile-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 30px; margin-top: 30px; }
+    
+    /* Avatar e Lado Esquerdo */
+    .profile-avatar-container { position: relative; width: 120px; height: 120px; margin: 0 auto 20px; }
+    .profile-avatar { width: 100%; height: 100%; border-radius: 50%; background: var(--neon-purple); display: flex; align-items: center; justify-content: center; font-size: 3rem; color: white; border: 3px solid rgba(255,255,255,0.2); box-shadow: 0 0 20px rgba(188, 19, 254, 0.4); }
+    .edit-avatar-btn { position: absolute; bottom: 0; right: 0; background: var(--neon-blue); color: black; border: none; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+    .edit-avatar-btn:hover { transform: scale(1.1); }
+    
+    .avatar-options { display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap; }
+    .avatar-option { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; border: 2px solid transparent; background: rgba(255,255,255,0.1); }
+    .avatar-option:hover { border-color: var(--neon-blue); background: rgba(0, 243, 255, 0.2); }
+
+    /* Estatísticas Mini */
+    .stat-mini-box { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 10px; border: 1px solid var(--glass-border); }
+    .stat-mini-value { font-size: 1.2rem; font-weight: bold; color: white; }
+    .stat-mini-label { font-size: 0.8rem; color: var(--text-muted); }
+
+    @media (max-width: 900px) { .profile-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="section-container fade-in" style="max-width: 1100px; margin-top: 100px;">
+    <h2 class="mb-20"><i class="fa-solid fa-id-card"></i> Configurações de Conta</h2>
+
+    <div class="profile-grid">
+        
+        <div class="glass-panel text-center" style="height: fit-content;">
+            
+            <form method="POST" action="{{ url_for('update_avatar') }}">
+                <div class="profile-avatar-container">
+                    <div class="profile-avatar">
+                        <i class="fa-solid {{ current_user.avatar if current_user.avatar else 'fa-user' }}"></i>
+                    </div>
+                    <button type="button" class="edit-avatar-btn" onclick="toggleAvatarSelection()" title="Mudar Avatar">
+                        <i class="fa-solid fa-camera"></i>
+                    </button>
+                </div>
+                
+                <h3 style="margin-bottom: 5px;">{{ current_user.username }}</h3>
+                <span class="beta-badge" style="font-size: 0.7rem;">PRO MEMBER</span>
+                
+                <div id="avatar-selector" class="hidden glass-panel mt-20" style="padding:15px; border: 1px solid var(--neon-blue);">
+                    <p style="font-size:0.8rem; margin:0 0 10px 0;">Escolhe o teu ícone:</p>
+                    <div class="avatar-options">
+                        <button type="submit" name="avatar" value="fa-user" class="avatar-option"><i class="fa-solid fa-user"></i></button>
+                        <button type="submit" name="avatar" value="fa-robot" class="avatar-option"><i class="fa-solid fa-robot"></i></button>
+                        <button type="submit" name="avatar" value="fa-user-astronaut" class="avatar-option"><i class="fa-solid fa-user-astronaut"></i></button>
+                        <button type="submit" name="avatar" value="fa-user-ninja" class="avatar-option"><i class="fa-solid fa-user-ninja"></i></button>
+                        <button type="submit" name="avatar" value="fa-cat" class="avatar-option"><i class="fa-solid fa-cat"></i></button>
+                        <button type="submit" name="avatar" value="fa-dragon" class="avatar-option"><i class="fa-solid fa-dragon"></i></button>
+                    </div>
+                </div>
+            </form>
+
+            <div class="section-divider" style="margin: 30px 0;"></div>
+            
+            <div class="stat-mini-box">
+                <div class="stat-mini-value" style="color:var(--success);">${{ "{:,.0f}".format(current_user.virtual_balance) }}</div>
+                <div class="stat-mini-label">Saldo Simulador</div>
+            </div>
+            <div class="stat-mini-box">
+                <div class="stat-mini-value">Basic</div>
+                <div class="stat-mini-label">Tipo de Plano</div>
+            </div>
+        </div>
+
+        <div>
+            <div class="glass-panel mb-20">
+                <h3 class="mb-20"><i class="fa-solid fa-user-pen"></i> Dados Pessoais</h3>
+                <form method="POST" action="{{ url_for('update_profile') }}">
+                    <div class="input-group">
+                        <i class="fa-solid fa-signature"></i>
+                        <input type="text" name="username" value="{{ current_user.username }}" placeholder="Nome de Utilizador">
+                    </div>
+                    <div class="input-group">
+                        <i class="fa-solid fa-envelope"></i>
+                        <input type="email" name="email" value="{{ current_user.email }}" placeholder="Email">
+                    </div>
+                    <div class="text-right">
+                        <button type="submit" class="btn-glow">Guardar Perfil</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="glass-panel mb-20">
+                <h3 class="mb-20" style="color: var(--neon-blue);"><i class="fa-solid fa-lock"></i> Segurança</h3>
+                <form method="POST" action="{{ url_for('update_password') }}">
+                    <div class="input-group">
+                        <i class="fa-solid fa-key"></i>
+                        <input type="password" name="old_password" placeholder="Password Atual" required>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="input-group">
+                            <i class="fa-solid fa-unlock"></i>
+                            <input type="password" name="new_password" placeholder="Nova Password" required>
+                        </div>
+                        <div class="input-group">
+                            <i class="fa-solid fa-check-double"></i>
+                            <input type="password" name="confirm_password" placeholder="Confirmar Nova" required>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <button type="submit" class="btn-outline">Atualizar Password</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="glass-panel mb-20">
+                <h3 class="mb-20"><i class="fa-solid fa-bell"></i> Notificações</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.05); padding-bottom:10px;">
+                    <div>
+                        <strong style="display:block;">Email Semanal</strong>
+                        <span class="text-muted" style="font-size:0.8rem;">Receber resumo do mercado</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <strong style="display:block;">Alertas de Preço</strong>
+                        <span class="text-muted" style="font-size:0.8rem;">Notificar quando targets forem atingidos</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" checked>
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="glass-panel" style="border: 1px solid rgba(231, 76, 60, 0.3);">
+                <h3 class="mb-20" style="color: var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Zona de Perigo</h3>
+                <p class="text-muted" style="font-size:0.9rem; margin-bottom:15px;">
+                    Se apagares a conta, todo o teu histórico e saldo simulado serão perdidos permanentemente.
+                </p>
+                <button class="btn-outline" style="border-color:var(--danger); color:var(--danger);" onclick="alert('Funcionalidade de segurança: Contacte o suporte para apagar a conta.')">
+                    Apagar Conta
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleAvatarSelection() {
+        document.getElementById('avatar-selector').classList.toggle('hidden');
+    }
+</script>
+
+<style>
+/* Estilo para os Toggles (Switches) */
+.switch { position: relative; display: inline-block; width: 40px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 34px; }
+.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--neon-purple); }
+input:checked + .slider:before { transform: translateX(16px); }
+</style>
+{% endblock %}

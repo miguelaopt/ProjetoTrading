@@ -21,7 +21,7 @@
             {% endif %}
         {% endwith %}
         
-        <form method="POST" action="{{ url_for('login_page' if mode == 'login' else 'signup_page') }}">
+        <form method="POST" action="{{ url_for('login_page' if mode == 'login' else 'register_page') }}">
             
             {% if mode == 'signup' %}
             <div class="input-group">
@@ -45,12 +45,12 @@
         </form>
 
         <p class="auth-footer">
-            {% if mode == 'login' %}
-                Ainda não tens conta? <a href="{{ url_for('signup_page') }}">Regista-te</a>
-            {% else %}
-                Já tens conta? <a href="{{ url_for('login_page') }}">Faz Login</a>
-            {% endif %}
-        </p>
+    {% if mode == 'login' %}
+        Ainda não tens conta? <a href="{{ url_for('register_page') }}">Regista-te</a>
+    {% else %}
+        Já tens conta? <a href="{{ url_for('login_page') }}">Faz Login</a>
+    {% endif %}
+</p>
     </div>
 </div>
 {% endblock %}

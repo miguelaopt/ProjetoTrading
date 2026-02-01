@@ -926,3 +926,95 @@ select option {
 /* Garante que o ícone também herda a cor se quiseres */
 .green { color: #2ecc71; }
 .red { color: #ff4d4d; }
+
+/* --- USER DROPDOWN (AVATAR) --- */
+.user-menu-container {
+    position: relative;
+    display: inline-block;
+    margin-left: 20px;
+    padding-bottom: 10px; /* Aumenta a área sensível em baixo */
+}
+
+/* O Ícone do Avatar */
+.user-avatar-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--glass-border);
+    color: white;
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.user-avatar-btn:hover {
+    background: var(--neon-purple);
+    box-shadow: 0 0 15px var(--neon-purple);
+    border-color: var(--neon-purple);
+}
+
+/* O Menu Dropdown (Escondido por defeito) */
+.user-dropdown-content {
+    display: none;
+    position: absolute;
+    right: 0;
+    /* Ajustado para ficar logo abaixo da ponte invisível */
+    top: 100%; 
+    width: 220px;
+    background: rgba(10, 5, 20, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 2000;
+    overflow: hidden;
+    animation: slideUp 0.3s ease;
+    
+    /* Pequena margem visual para não colar no botão, mas segura graças à ponte */
+    margin-top: 5px; 
+}
+
+/* Mostrar quando passa o rato no container */
+.user-menu-container:hover .user-dropdown-content {
+    display: block;
+}
+
+/* Cria uma ponte invisível entre o botão e o menu */
+.user-menu-container::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 20px; /* Cobre o buraco entre o ícone e o menu */
+    background: transparent; 
+}
+
+/* Itens do Menu */
+.dropdown-header {
+    padding: 15px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.02);
+}
+.dropdown-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 20px;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: 0.2s;
+    font-size: 0.9rem;
+}
+.dropdown-item:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    padding-left: 25px; /* Pequeno movimento para a direita */
+}
+.dropdown-item i { width: 20px; text-align: center; }
+
+/* Separador */
+.dropdown-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 5px 0; }
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

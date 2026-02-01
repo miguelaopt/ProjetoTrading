@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="section-container fade-in" style="max-width: 1000px; margin-top: 100px;">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
+        <div>
+            <h2 style="margin:0;"><i class="fa-solid fa-clock-rotate-left"></i> Histórico de Transações</h2>
+            <p class="text-muted">Registo completo das tuas operações no simulador.</p>
+        </div>
+        <div class="glass-panel" style="padding: 10px 20px; display:flex; gap:20px;">
+            <div style="text-align:center;">
+                <span style="font-size:0.8rem; color:var(--text-muted);">Total Trades</span><br>
+                <strong>{{ transactions|length }}</strong>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-panel table-responsive">
+        <table class="market-table-full">
+            <thead>
+                <tr>
+                    <th>Data / Hora</th>
+                    <th>Operação</th>
+                    <th>Ativo</th>
+                    <th class="text-right">Preço Execução</th>
+                    <th class="text-right">Quantidade</th>
+                    <th class="text-right">Valor Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in transactions %}
+                <tr style="transition:0.2s;">
+                    <td style="color:var(--text-muted); font-size:0.9rem;">
+                        {{ tx.timestamp.strftime('%d/%m/%Y') }} <small>{{ tx.timestamp.strftime('%H:%M') }}</small>
+                    </td>
+                    
+                    <td>
+                        {% if tx.type == 'BUY' %}
+                            <span style="background:rgba(46, 204, 113, 0.1); color:#2ecc71; padding:4px 10px; border-radius:15px; font-size:0.8rem; border:1px solid rgba(46, 204, 113, 0.3); font-weight:bold;">
+                                <i class="fa-solid fa-arrow-down" style="font-size:0.7rem;"></i> COMPRA
+                            </span>
+                        {% else %}
+                            <span style="background:rgba(231, 76, 60, 0.1); color:#e74c3c; padding:4px 10px; border-radius:15px; font-size:0.8rem; border:1px solid rgba(231, 76, 60, 0.3); font-weight:bold;">
+                                <i class="fa-solid fa-arrow-up" style="font-size:0.7rem;"></i> VENDA
+                            </span>
+                        {% endif %}
+                    </td>
+                    
+                    <td style="font-weight:bold; font-size:1.1rem;">{{ tx.symbol }}</td>
+                    
+                    <td class="text-right" style="font-family:monospace; color:#ddd;">
+                        ${{ "{:,.2f}".format(tx.price) }}
+                    </td>
+                    
+                    <td class="text-right" style="font-family:monospace; color:#ddd;">
+                        {{ "{:.6f}".format(tx.amount) }}
+                    </td>
+                    
+                    <td class="text-right">
+                        <strong style="color: white;">
+                            ${{ "{:,.2f}".format(tx.total_value) }}
+                        </strong>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="text-center" style="padding:40px;">
+                        <i class="fa-solid fa-scroll" style="font-size:2rem; color:var(--glass-border); margin-bottom:10px;"></i>
+                        <p class="text-muted">Ainda não há registos no livro de ordens.</p>
+                        <a href="{{ url_for('paper_trading') }}" class="btn-glow mt-20">Fazer o 1º Trade</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

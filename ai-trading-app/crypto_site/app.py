@@ -49,9 +49,12 @@ login_manager.init_app(app)
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(100), unique=True)
-    password = db.Column(db.String(200))
+    username = db.Column(db.String(150), unique=True, nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    password = db.Column(db.String(150), nullable=False)
     name = db.Column(db.String(100))
+    avatar = db.Column(db.String(50), default='fa-user')
+
     
     # Paper Trading: Saldo Virtual (Começa com 10k)
     virtual_balance = db.Column(db.Float, default=10000.0)
@@ -272,29 +275,88 @@ def login_page():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
+        
         user = User.query.filter_by(email=email).first()
-        if not user or not check_password_hash(user.password, password):
-            flash('Email ou password incorretos.')
-            return redirect(url_for('login_page'))
-        login_user(user)
-        return redirect(request.args.get('next') or url_for('crypto_page'))
+        
+        if user and check_password_hash(user.password, password):
+            login_user(user)
+            flash('Login efetuado com sucesso!', 'success')
+            return redirect(url_for('home')) # Ou para onde quiseres ir
+        else:
+            flash('Email ou password incorretos.', 'error')
+
+    # AQUI ESTÁ A CORREÇÃO: Usa auth.html com modo login
     return render_template('auth.html', mode='login')
 
-@app.route('/signup', methods=['GET', 'POST'])
-def signup_page():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        name = request.form.get('name')
-        password = request.form.get('password')
-        if User.query.filter_by(email=email).first():
-            flash('Email já existe.')
-            return redirect(url_for('login_page'))
-        new_user = User(email=email, name=name, password=generate_password_hash(password, method='scrypt'))
-        db.session.add(new_user)
+
+# --- ROTA DE PERFIL (CORRIGIDA) ---
+@app.route('/profile')
+@login_required
+def profile_page():
+    return render_template('profile.html', active_page='profile')
+
+@app.route('/update_profile', methods=['POST'])
+@login_required
+def update_profile():
+    username = request.form.get('username')
+    email = request.form.get('email')
+    
+    # Validação simples
+    existing_user = User.query.filter_by(username=username).first()
+    if existing_user and existing_user.id != current_user.id:
+        flash('Nome de utilizador já está em uso.', 'error')
+    else:
+        current_user.username = username
+        current_user.email = email
+        try:
+            db.session.commit()
+            flash('Dados atualizados!', 'success')
+        except:
+            flash('Erro ao guardar.', 'error')
+            
+    return redirect(url_for('profile_page'))
+
+@app.route('/update_password', methods=['POST'])
+@login_required
+def update_password():
+    old_pass = request.form.get('old_password')
+    new_pass = request.form.get('new_password')
+    confirm_pass = request.form.get('confirm_password')
+    
+    if not check_password_hash(current_user.password, old_pass):
+        flash('A password atual está incorreta.', 'error')
+        return redirect(url_for('profile_page'))
+    
+    if new_pass != confirm_pass:
+        flash('As novas passwords não coincidem.', 'error')
+        return redirect(url_for('profile_page'))
+        
+    # Guardar nova password hash
+    current_user.password = generate_password_hash(new_pass, method='pbkdf2:sha256')
+    db.session.commit()
+    flash('Password alterada com sucesso!', 'success')
+    return redirect(url_for('profile_page'))
+
+@app.route('/update_avatar', methods=['POST'])
+@login_required
+def update_avatar():
+    avatar = request.form.get('avatar')
+    if avatar:
+        current_user.avatar = avatar
         db.session.commit()
-        login_user(new_user)
-        return redirect(url_for('crypto_page'))
-    return render_template('auth.html', mode='signup')
+        flash('Avatar atualizado!', 'success')
+    return redirect(url_for('profile_page'))
+
+
+@app.route('/history')
+@login_required
+def history_page():
+    # Vai buscar todas as transações, ordenadas da mais recente para a mais antiga
+    transactions = Transaction.query.filter_by(user_id=current_user.id)\
+                    .order_by(Transaction.timestamp.desc())\
+                    .all()
+    
+    return render_template('history.html', transactions=transactions, active_page='history')
 
 @app.route('/logout')
 @login_required
@@ -775,6 +837,42 @@ def crypto_details(ticker):
         print(f"Erro Details: {e}")
         flash("Erro ao carregar detalhes.", "error")
         return redirect(url_for('crypto_recommend_page'))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register_page():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        # 1. Verificar se já existe
+        user = User.query.filter_by(email=email).first()
+        if user:
+            flash('Este email já está registado.', 'error')
+        else:
+            # 2. Criar novo utilizador
+            new_user = User(
+                username=name,
+                email=email, 
+                password=generate_password_hash(password, method='pbkdf2:sha256')
+            )
+            
+            try:
+                db.session.add(new_user)
+                db.session.commit()
+                
+                # 3. MENSAGEM DE SUCESSO
+                flash('Conta criada com sucesso! Por favor faz login.', 'success')
+                
+                # 4. O SEGREDO ESTÁ AQUI: Redireciona para o LOGIN, não para a Home
+                # E garantimos que NÃO chamamos login_user(new_user)
+                return redirect(url_for('login_page'))
+                
+            except Exception as e:
+                flash(f'Erro ao criar conta: {e}', 'error')
+                    
+    # Se for GET, mostra o formulário de registo
+    return render_template('auth.html', mode='signup')
 
 if __name__ == '__main__':
     # Porta 5000 forçada para evitar erros
