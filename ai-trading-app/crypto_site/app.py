@@ -178,7 +178,6 @@ def crypto_decoder_page(): return render_template('crypto_decoder.html', active_
 
 
 # --- APIS CORRIGIDAS (AQUI ESTÁ O FIX) ---
-
 @app.route('/analyze_user_coin', methods=['POST'])
 @login_required
 def analyze_user_coin():
@@ -187,14 +186,18 @@ def analyze_user_coin():
         raw_ticker = data.get('ticker', '').strip().upper()
         investment = float(data.get('investment', 0))
         
-        # 1. Obter Preço
+        # 1. Obter Preço (YFinance)
+        # Tentativa 1: Com -USD
         yf_ticker = f"{raw_ticker}-USD" if not raw_ticker.endswith(("USD", "-USD")) else raw_ticker
         stock = yf.Ticker(yf_ticker)
         hist = stock.history(period="1mo")
+        
+        # Tentativa 2: Sem -USD (Se falhar a primeira)
         if hist.empty:
             stock = yf.Ticker(raw_ticker)
             hist = stock.history(period="1mo")
-            if hist.empty: return jsonify({"error": f"Moeda '{raw_ticker}' não encontrada."})
+            if hist.empty:
+                return jsonify({"error": f"Não consegui ler o preço de '{raw_ticker}'. Verifica o nome."})
 
         current_price = hist['Close'].iloc[-1]
         start_price = hist['Close'].iloc[0]
@@ -202,50 +205,60 @@ def analyze_user_coin():
 
         # 2. Prompt
         prompt = f"""
-        Age como Mentor de Trading. Investimento: ${investment} em {raw_ticker}.
-        Preço: {current_price:.8f}. Perf 30d: {perf_30d:.2f}%.
-        Responde APENAS neste JSON:
+        És um especialista financeiro. Analisa o ativo {raw_ticker}.
+        Dados Atuais: Preço ${current_price:.8f}, Performance 30d {perf_30d:.2f}%.
+        O utilizador quer investir ${investment}.
+        
+        Gera um JSON com esta estrutura exata:
         {{
-            "verdict": "Compra / Espera / Vende",
-            "explanation": "Frase curta.",
-            "entry": 0.0,
-            "stop_loss": 0.0,
-            "take_profit": 0.0,
-            "risk_level": "Baixo/Médio/Alto"
+            "verdict": "Compra, Venda ou Espera",
+            "explanation": "Uma frase curta em PT-PT.",
+            "entry": (valor float sugerido para entrada),
+            "stop_loss": (valor float para stop loss),
+            "take_profit": (valor float para alvo),
+            "risk_level": "Baixo, Médio ou Alto"
         }}
         """
         
-        # 3. Chamar AI (Modelo Estável 1.5)
-        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
+        # 3. Chamar AI com MODO JSON FORÇADO (O Segredo!)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type='application/json' 
+            )
+        )
         
-        # DEBUG: Ver o que a AI mandou nos Logs do Render
-        print(f"RESPOSTA AI RAW: {response.text}") 
+        # Debug: Ver nos logs do Render o que chegou
+        print(f"AI Resposta para {raw_ticker}: {response.text}")
 
-        # 4. Limpar JSON (O FIX)
+        # 4. Ler JSON (Agora é seguro porque forçámos o formato)
         import json
-        json_str = clean_ai_response(response.text)
+        ai_data = json.loads(response.text)
         
-        if not json_str:
-            return jsonify({"error": "A AI retornou texto inválido. Tenta de novo."})
-            
-        ai_data = json.loads(json_str)
+        # 5. Cálculos Matemáticos (Protegidos contra divisão por zero)
+        if current_price > 0:
+            shares = investment / current_price
+            pot_profit = (ai_data['take_profit'] - current_price) * shares
+            pot_loss = (current_price - ai_data['stop_loss']) * shares
+            roi = ((ai_data['take_profit'] - current_price) / current_price) * 100
+        else:
+            shares, pot_profit, pot_loss, roi = 0, 0, 0, 0
         
-        # 5. Cálculos
-        shares = investment / current_price
-        pot_profit = (ai_data['take_profit'] - current_price) * shares
-        pot_loss = (current_price - ai_data['stop_loss']) * shares
-        roi = ((ai_data['take_profit'] - current_price) / current_price) * 100
-        
+        # Função auxiliar local para formatar
+        def fmt(val): 
+            return f"${val:.8f}" if val < 1 else f"${val:,.2f}"
+
         return jsonify({
             "ticker": raw_ticker,
-            "current_price": smart_format(current_price),
+            "current_price": fmt(current_price),
             "verdict": ai_data['verdict'],
             "explanation": ai_data['explanation'],
             "risk_level": ai_data['risk_level'],
             "plan": { 
-                "entry": smart_format(ai_data['entry']), 
-                "stop": smart_format(ai_data['stop_loss']), 
-                "target": smart_format(ai_data['take_profit']) 
+                "entry": fmt(ai_data['entry']), 
+                "stop": fmt(ai_data['stop_loss']), 
+                "target": fmt(ai_data['take_profit']) 
             },
             "math": { 
                 "shares": f"{shares:,.2f}", 
@@ -254,8 +267,10 @@ def analyze_user_coin():
                 "roi": f"{roi:.1f}%" 
             }
         })
+
     except Exception as e:
-        print(f"ERRO PYTHON: {e}")
+        print(f"ERRO CRÍTICO ANALISAR: {e}")
+        # Retorna o erro real para o ecrã para saberes o que se passa
         return jsonify({"error": f"Erro interno: {str(e)}"})
 
 @app.route('/generate_portfolio', methods=['POST'])
@@ -309,6 +324,45 @@ def get_market_data():
     cd = fetch(cryptos)
     cd.sort(key=lambda x: x['raw_price'], reverse=True)
     return jsonify({"crypto": cd, "etf": fetch(etfs)})
+
+@app.route('/get_recommendations', methods=['GET'])
+def get_recommendations():
+    try:
+        # Lista de candidatos
+        candidates = ['SOL-USD', 'DOGE-USD', 'AVAX-USD', 'LINK-USD', 'FET-USD', 'PEPE-USD', 'XRP-USD']
+        recommendations = []
+        
+        for t in candidates:
+            try:
+                # Proteção Individual: Se esta moeda falhar, passa à próxima
+                stock = yf.Ticker(t)
+                hist = stock.history(period="5d")
+                
+                if len(hist) > 1:
+                    curr = hist['Close'].iloc[-1]
+                    start = hist['Close'].iloc[0]
+                    change = ((curr - start) / start) * 100
+                    
+                    # Só recomenda se tiver subido (Momentum)
+                    if change > 0:
+                        recommendations.append({
+                            "ticker": t.replace("-USD", ""),
+                            "price": f"${curr:.4f}" if curr < 1 else f"${curr:.2f}",
+                            "change_5d": f"+{change:.1f}%",
+                            "target": f"${curr*1.15:.4f}" if curr < 1 else f"${curr*1.15:.2f}", # Alvo +15%
+                            "stop": f"${curr*0.90:.4f}" if curr < 1 else f"${curr*0.90:.2f}",   # Stop -10%
+                            "roi": "Potencial Alto",
+                            "tag": "Momentum"
+                        })
+            except Exception as inner_e:
+                print(f"Erro ao ler {t}: {inner_e}")
+                continue # Continua para a próxima moeda
+
+        return jsonify(recommendations)
+
+    except Exception as e:
+        print(f"Erro Geral Recommendations: {e}")
+        return jsonify([]) # Retorna lista vazia em vez de crashar
 
 if __name__ == '__main__':
     app.run(debug=True)
