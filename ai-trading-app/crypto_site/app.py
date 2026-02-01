@@ -107,6 +107,22 @@ def crypto_page(): return render_template('crypto.html', active_page='crypto')
 @app.route('/etf')
 def etf_page(): return render_template('etf.html', active_page='etf')
 
+@app.route('/screener')
+@login_required 
+def screener_page():
+    # Cria o ficheiro screener.html se não existir, senão dá erro de template
+    return render_template('screener.html', active_page='screener')
+
+@app.route('/ai')
+@login_required
+def ai_page():
+    return render_template('ai.html', active_page='ai')
+
+@app.route('/risk')
+@login_required
+def risk_page():
+    return render_template('risk.html', active_page='risk')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login_page():
     if request.method == 'POST':
@@ -200,7 +216,7 @@ def analyze_user_coin():
         """
         
         # 3. Chamar AI (Modelo Estável 1.5)
-        response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         
         # DEBUG: Ver o que a AI mandou nos Logs do Render
         print(f"RESPOSTA AI RAW: {response.text}") 
@@ -251,7 +267,7 @@ def generate_portfolio():
         Cria portfolio crypto €{data.get('capital')}, Risco {data.get('risk')}.
         JSON EXATO: {{'explanation': '...', 'allocation': [{{'asset': 'Nome', 'pct': 50}}]}}
         """
-        response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         
         # Limpar JSON
         import json
@@ -269,7 +285,7 @@ def generate_portfolio():
 def decode_market():
     try:
         prompt = f"Explica simples iniciante (max 3 frases): {request.json.get('question')}"
-        response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
         return jsonify({"answer": response.text})
     except Exception as e: return jsonify({"error": str(e)})
 
