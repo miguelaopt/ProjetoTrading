@@ -10,6 +10,8 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 import requests
+from flask_caching import Cache
+
 
 # --- CONFIGURAÇÃO INICIAL ---
 
@@ -17,6 +19,9 @@ import requests
 load_dotenv(encoding="utf-8")
 
 app = Flask(__name__)
+
+# CONFIGURAÇÃO DE CACHE (Memória Simples)
+cache = Cache(app, config={'CACHE_TYPE': 'SimpleCache', 'CACHE_DEFAULT_TIMEOUT': 60})
 
 # Configuração da Chave Secreta e API
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "chave-secreta-padrao")
@@ -54,6 +59,7 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(150), nullable=False)
     name = db.Column(db.String(100))
     avatar = db.Column(db.String(50), default='fa-user')
+    special_role = db.Column(db.String(50), nullable=True)
 
     
     # Paper Trading: Saldo Virtual (Começa com 10k)
@@ -90,6 +96,119 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 # --- FUNÇÕES AUXILIARES ---
+
+def get_user_badges(user):
+    badges = []
+    
+    # --- BADGE 1: INICIADO (Fez 1 trade) ---
+    # Verifica se transactions existe e tem itens
+    if user.transactions and len(user.transactions) > 0:
+        badges.append({'icon': 'fa-rocket', 'color': '#3498db', 'title': 'Iniciado', 'desc': 'Fez o primeiro trade'})
+        
+    # --- BADGE 2: VETERANO (10+ trades) ---
+    if user.transactions and len(user.transactions) >= 10:
+        badges.append({'icon': 'fa-medal', 'color': '#9b59b6', 'title': 'Veterano', 'desc': 'Mais de 10 operações'})
+
+    # --- BADGE 3: BALEIA (Lucro > 50%) ---
+    # Se o saldo for > 15k (começa com 10k)
+    if user.virtual_balance >= 15000:
+         badges.append({'icon': 'fa-crown', 'color': '#f1c40f', 'title': 'Baleia', 'desc': 'Lucro superior a 50%'})
+    
+    # --- BADGE 4: ADMIN/VIP (Manual) ---
+    # Verifica se a coluna existe para evitar erros se não atualizaste a BD
+    if hasattr(user, 'special_role'):
+        if user.special_role == 'ADMIN':
+            badges.append({'icon': 'fa-shield-halved', 'color': '#e74c3c', 'title': 'Admin', 'desc': 'Staff'})
+        elif user.special_role == 'VIP':
+            badges.append({'icon': 'fa-star', 'color': '#d35400', 'title': 'VIP', 'desc': 'Membro VIP'})
+
+    return badges
+
+# --- ADICIONAR NO APP.PY ---
+
+def calculate_user_net_worth(user):
+    """Calcula o património total (Saldo + Valor das Moedas em carteira)"""
+    total_value = user.virtual_balance
+    
+    # Se o user tiver portfolio, somar o valor atual das moedas
+    if user.portfolio:
+        # Para ser rápido no leaderboard, vamos tentar usar cache ou valores aproximados
+        # Mas aqui vamos buscar live para ser preciso
+        for item in user.portfolio:
+            try:
+                # Tenta buscar preço rápido
+                ticker_name = f"{item.symbol}-USD"
+                ticker = yf.Ticker(ticker_name)
+                # fast_info é mais rápido que history
+                current_price = ticker.fast_info.last_price 
+                if current_price:
+                    total_value += (item.amount * current_price)
+                else:
+                    total_value += (item.amount * item.avg_price) # Fallback
+            except:
+                total_value += (item.amount * item.avg_price) # Fallback seguro
+                
+    return total_value
+
+@app.route('/leaderboard')
+def leaderboard_page():
+    users = User.query.all()
+    leaderboard_data = []
+    
+    for u in users:
+        # Calcular Net Worth (Simplificado)
+        net_worth = u.virtual_balance
+        if u.portfolio:
+            for item in u.portfolio:
+                net_worth += (item.amount * item.avg_price) # Simplificado
+
+        pnl_pct = ((net_worth - 10000) / 10000) * 100
+        
+        # AQUI ESTÁ A CORREÇÃO: Usar a mesma função para toda a gente
+        user_badges = get_user_badges(u)
+        
+        leaderboard_data.append({
+            'username': u.username,
+            'avatar': u.avatar if u.avatar else 'fa-user',
+            'net_worth': net_worth,
+            'pnl_pct': pnl_pct,
+            'badges': user_badges, # <--- IMPORTANTE: Enviar para o HTML
+            'is_current': (current_user.is_authenticated and u.id == current_user.id)
+        })
+    
+    # Ordenar
+    leaderboard_data.sort(key=lambda x: x['net_worth'], reverse=True)
+    
+    return render_template('leaderboard.html', ranking=leaderboard_data, active_page='leaderboard')
+
+@app.route('/trader/<username>')
+@login_required
+def public_profile(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    
+    # Calcular stats
+    net_worth = user.virtual_balance
+    portfolio_list = []
+    
+    if user.portfolio:
+        for item in user.portfolio:
+            # Lógica de preço (simplificada)
+            current_price = item.avg_price # Em produção usarias API
+            val = item.amount * current_price
+            net_worth += val
+            portfolio_list.append({'symbol': item.symbol, 'amount': item.amount, 'value': val})
+        
+    pnl = ((net_worth - 10000) / 10000) * 100
+    
+    # --- NOVO: BUSCAR BADGES DO UTILIZADOR VISITADO ---
+    badges = get_user_badges(user) 
+    
+    return render_template('public_profile.html', 
+                           trader=user, 
+                           net_worth=net_worth, 
+                           pnl=pnl, 
+                           portfolio=portfolio_list,
+                           badges=badges) # <--- Envia badges para o HTML
 
 def smart_format(value):
     if value is None: return "$0.00"
@@ -131,6 +250,7 @@ def get_market_sentiment():
         # Fallback se a API falhar
         return {"value": 50, "text": "Neutral (Offline)"}
 
+@cache.memoize(timeout=120) # Guarda o resultado por 2 minutos
 def get_top_cryptos(limit=5):
     """
     Busca dados reais. 
@@ -203,6 +323,7 @@ def get_top_cryptos(limit=5):
 # --- ROTAS PRINCIPAIS ---
 
 @app.route('/')
+@cache.memoize(timeout=60) # A pagina Home guardada por 1 minuto
 def home():
     # 1. Buscar Sentimento Real
     sentiment = get_market_sentiment()
@@ -290,10 +411,12 @@ def login_page():
 
 
 # --- ROTA DE PERFIL (CORRIGIDA) ---
-@app.route('/profile')
+@app.route('/profile', methods=['GET', 'POST'])
 @login_required
 def profile_page():
-    return render_template('profile.html', active_page='profile')
+    my_badges = get_user_badges(current_user)
+    
+    return render_template('profile.html', active_page='profile', badges=my_badges)
 
 @app.route('/update_profile', methods=['POST'])
 @login_required
@@ -873,6 +996,75 @@ def register_page():
                     
     # Se for GET, mostra o formulário de registo
     return render_template('auth.html', mode='signup')
+
+@app.route('/crypto/snapshot')
+@login_required
+def crypto_snapshot_page():
+    ticker = request.args.get('ticker')
+    if not ticker:
+        return redirect(url_for('crypto_page'))
+    
+    ticker = ticker.upper().replace(" ", "")
+    yf_ticker = f"{ticker}-USD"
+    
+    try:
+        # Busca dados rápidos (1 mês para ter contexto)
+        stock = yf.Ticker(yf_ticker)
+        hist = stock.history(period="1mo")
+        
+        if hist.empty:
+            flash(f"Moeda {ticker} não encontrada.", "error")
+            return redirect(url_for('crypto_page'))
+            
+        # Dados Atuais
+        current_price = hist['Close'].iloc[-1]
+        prev_close = hist['Close'].iloc[-2]
+        change_pct = ((current_price - prev_close) / prev_close) * 100
+        
+        # Dados de Volume
+        volume = hist['Volume'].iloc[-1]
+        avg_volume = hist['Volume'].mean()
+        
+        # --- Lógica de Estimativa Simples (Tendência) ---
+        # Se estiver acima da média de 30 dias e com volume alto = SUBIR
+        ma_30 = hist['Close'].mean()
+        signal = "Neutro"
+        signal_color = "yellow"
+        signal_icon = "fa-minus"
+        desc = "Mercado indeciso."
+
+        if current_price > ma_30 and change_pct > 0:
+            signal = "Tendência de Alta"
+            signal_color = "green"
+            signal_icon = "fa-arrow-trend-up"
+            desc = "Preço acima da média mensal com momentum positivo."
+        elif current_price < ma_30 and change_pct < 0:
+            signal = "Tendência de Baixa"
+            signal_color = "red"
+            signal_icon = "fa-arrow-trend-down"
+            desc = "Preço abaixo da média mensal. Cuidado."
+        elif change_pct > 5:
+             signal = "Possível Pump"
+             signal_color = "green"
+             signal_icon = "fa-rocket"
+             desc = "Movimento explosivo detetado no curto prazo."
+
+        return render_template('crypto_snapshot.html',
+                               ticker=ticker,
+                               price=smart_format(current_price),
+                               change=f"{change_pct:+.2f}%",
+                               change_raw=change_pct,
+                               volume=smart_format(volume),
+                               signal=signal,
+                               signal_color=signal_color,
+                               signal_icon=signal_icon,
+                               signal_desc=desc,
+                               active_page ='crypto')
+
+    except Exception as e:
+        print(f"Erro Snapshot: {e}")
+        flash(f"Erro ao carregar {ticker}.", "error")
+        return redirect(url_for('crypto_page'))
 
 if __name__ == '__main__':
     # Porta 5000 forçada para evitar erros

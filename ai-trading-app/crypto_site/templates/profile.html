@@ -65,6 +65,37 @@
                 <div class="stat-mini-value">Basic</div>
                 <div class="stat-mini-label">Tipo de Plano</div>
             </div>
+            <div class="glass-panel mt-20 text-center">
+    <h4 style="margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">
+        <i class="fa-solid fa-trophy" style="color:#f1c40f;"></i> Conquistas
+    </h4>
+    
+    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+        {% if badges %}
+            {% for badge in badges %}
+            <div title="{{ badge.title }}: {{ badge.desc }}" style="position:relative; cursor:help;">
+                <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {{ badge.color }}; color: {{ badge.color }}; font-size: 1.2rem;">
+                    <i class="fa-solid {{ badge.icon }}"></i>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted" style="font-size: 0.8rem;">
+                Faz o teu primeiro trade para ganhares uma medalha!
+            </p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="glass-panel mt-20 text-center" style="background: linear-gradient(45deg, rgba(29, 161, 242, 0.1), transparent);">
+    <p style="font-size:0.9rem; margin-bottom:10px;">Orgulhoso do teu progresso?</p>
+    <button onclick="shareProfile()" class="btn-outline full-width" style="border-color: #1DA1F2; color: #1DA1F2;">
+        <i class="fa-brands fa-twitter"></i> Partilhar no X
+    </button>
+    <button onclick="copyLink()" class="btn-outline full-width mt-20">
+        <i class="fa-solid fa-link"></i> Copiar Link
+    </button>
+</div>
         </div>
 
         <div>
@@ -161,4 +192,17 @@
 input:checked + .slider { background-color: var(--neon-purple); }
 input:checked + .slider:before { transform: translateX(16px); }
 </style>
+
+<script>
+function shareProfile() {
+    const text = "Estou a bater o mercado no FlowTrade! O meu saldo atual é ${{ '{:,.0f}'.format(current_user.virtual_balance) }}. Tenta superar-me! 🚀 #Crypto #AI";
+    const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text);
+    window.open(url, '_blank');
+}
+
+function copyLink() {
+    navigator.clipboard.writeText(window.location.origin);
+    alert("Link copiado! Envia aos teus amigos.");
+}
+</script>
 {% endblock %}

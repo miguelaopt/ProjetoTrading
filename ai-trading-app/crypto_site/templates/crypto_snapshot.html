@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .snapshot-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-top: 30px; }
+    .signal-card { text-align: center; padding: 30px; border: 1px solid var(--glass-border); position: relative; overflow: hidden; }
+    
+    /* Efeito de "Radar" no fundo do card de sinal */
+    .signal-bg-glow {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        width: 150px; height: 150px; border-radius: 50%;
+        filter: blur(40px); opacity: 0.2; z-index: 0;
+    }
+    .green-glow { background: var(--neon-green); }
+    .red-glow { background: var(--neon-red); }
+    .yellow-glow { background: #f1c40f; }
+
+    @media (max-width: 900px) { .snapshot-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="section-container fade-in" style="max-width: 1200px; margin-top: 100px;">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <a href="{{ url_for('crypto_page') }}" class="btn-outline" style="padding: 10px 15px; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-arrow-left"></i> Voltar
+        </a>
+        
+        <h1 style="margin:0; display:flex; align-items:baseline; gap:10px; line-height: 1;">
+            {{ ticker }} <span style="font-size:1.2rem; color:var(--text-muted); font-weight: 400;">USD</span>
+        </h1>
+    </div>
+
+    <div class="text-right">
+        <div style="font-size: 2rem; font-weight: 800; line-height: 1;">{{ price }}</div>
+        <div class="{{ 'text-green' if change_raw >= 0 else 'text-red' }}" style="font-size: 1rem; font-weight:bold; margin-top: 5px;">
+            {{ change }}
+        </div>
+    </div>
+</div>
+
+    <div class="snapshot-grid">
+        
+        <div class="glass-panel" style="height: 450px; padding: 10px;">
+            <div id="tv_chart_snapshot" style="height:100%; width:100%"></div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:20px;">
+            
+            <div class="glass-panel signal-card">
+                <div class="signal-bg-glow {{ 'green-glow' if signal_color == 'green' else ('red-glow' if signal_color == 'red' else 'yellow-glow') }}"></div>
+                
+                <div style="position:relative; z-index:1;">
+                    <h4 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:20px; color:var(--text-muted);">Estimativa Técnica</h4>
+                    
+                    <div style="font-size: 4rem; margin-bottom: 10px; color: {{ 'var(--neon-green)' if signal_color == 'green' else ('var(--neon-red)' if signal_color == 'red' else '#f1c40f') }};">
+                        <i class="fa-solid {{ signal_icon }}"></i>
+                    </div>
+                    
+                    <h2 style="margin:0;">{{ signal }}</h2>
+                    <p style="margin-top:10px; font-size:0.9rem; color:#ddd;">{{ signal_desc }}</p>
+                </div>
+            </div>
+
+            <div class="glass-panel" style="text-align:center;">
+    <p class="mb-20">Queres um plano detalhado com Entry, Stop Loss e Take Profit?</p>
+    
+    <a href="{{ url_for('crypto_analyze_page') }}?ticker={{ ticker }}&auto=true" class="btn-glow full-width" style="justify-content:center; padding: 15px;">
+        <i class="fa-solid fa-brain" style="margin-right:10px;"></i> Correr AI Analyzer
+    </a>
+    
+    <div style="display:flex; gap:10px; margin-top:15px;">
+        <a href="https://finance.yahoo.com/quote/{{ ticker }}-USD" target="_blank" class="btn-outline full-width" style="justify-content:center; font-size:0.8rem;">
+            <i class="fa-solid fa-chart-simple"></i> Ver no Yahoo
+        </a>
+        
+        <a href="{{ url_for('paper_trading') }}" class="btn-outline full-width" style="justify-content:center; font-size:0.8rem;">
+            <i class="fa-solid fa-gamepad"></i> Trade
+        </a>
+    </div>
+</div>
+
+            <div class="glass-panel" style="display:flex; justify-content:space-between; align-items:center;">
+                <span class="text-muted"><i class="fa-solid fa-chart-simple"></i> Volume (24h)</span>
+                <span style="font-weight:bold;">{{ volume }}</span>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        new TradingView.widget({
+            "autosize": true,
+            "symbol": "BINANCE:{{ ticker }}USD", // Tenta Binance, se falhar pode precisar de ajuste
+            "interval": "60", // Gráfico de 1 hora para visão rápida
+            "timezone": "Etc/UTC",
+            "theme": "dark",
+            "style": "1",
+            "locale": "en",
+            "toolbar_bg": "#f1f3f6",
+            "enable_publishing": false,
+            "hide_top_toolbar": true, // Esconde ferramentas para ser mais limpo
+            "hide_legend": true,
+            "save_image": false,
+            "container_id": "tv_chart_snapshot",
+            "backgroundColor": "rgba(0, 0, 0, 0)" 
+        });
+    });
+</script>
+{% endblock %}

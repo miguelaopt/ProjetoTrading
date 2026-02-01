@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="section-container fade-in" style="max-width: 800px; margin-top: 100px;">
+    
+    <a href="{{ url_for('leaderboard_page') }}" class="btn-outline mb-20"><i class="fa-solid fa-arrow-left"></i> Voltar ao Ranking</a>
+
+    <div class="glass-panel text-center">
+        <div style="width:80px; height:80px; background:var(--neon-purple); border-radius:50%; margin:0 auto 20px; display:flex; align-items:center; justify-content:center; font-size:2.5rem; color:white; border:4px solid rgba(255,255,255,0.2);">
+            <i class="fa-solid {{ trader.avatar }}"></i>
+        </div>
+        
+        <h2>{{ trader.username }}</h2>
+        <div style="display: flex; gap: 8px; justify-content: center; margin-top: 15px; flex-wrap: wrap;">
+        {% if badges %}
+            {% for badge in badges %}
+            <div title="{{ badge.title }}: {{ badge.desc }}" style="cursor: help;">
+                <div style="width: 35px; height: 35px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {{ badge.color }}; color: {{ badge.color }}; font-size: 1rem;">
+                    <i class="fa-solid {{ badge.icon }}"></i>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <span class="text-muted" style="font-size:0.8rem;">Ainda sem conquistas.</span>
+        {% endif %}
+    </div>
+        <p class="text-muted">Membro desde 2024</p>
+
+        <div class="stats-row" style="margin: 30px 0; gap:20px;">
+            <div>
+                <small class="text-muted">Património</small>
+                <h3>${{ "{:,.2f}".format(net_worth) }}</h3>
+            </div>
+            <div>
+                <small class="text-muted">Performance Total</small>
+                <h3 class="{{ 'green' if pnl >= 0 else 'red' }}">{{ "{:+.2f}%".format(pnl) }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="mt-60 mb-20">Carteira Pública</h3>
+    <div class="glass-panel">
+        {% if portfolio %}
+            <table class="market-table-full">
+                <thead><tr><th>Ativo</th><th class="text-right">Quantidade</th><th class="text-right">Valor Estimado</th></tr></thead>
+                <tbody>
+                    {% for item in portfolio %}
+                    <tr>
+                        <td style="color:var(--neon-blue); font-weight:bold;">{{ item.symbol }}</td>
+                        <td class="text-right">{{ "{:.4f}".format(item.amount) }}</td>
+                        <td class="text-right">${{ "{:,.2f}".format(item.value) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-center text-muted">Este trader está 100% líquido (Cash).</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

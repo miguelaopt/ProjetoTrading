@@ -23,27 +23,49 @@
     </div>
 
     <div class="stats-row" style="margin: 40px 0; gap: 20px;">
-        <div class="stat-item glass-panel">
-            <div class="icon-box" style="margin-bottom:10px; font-size:1.5rem;"><i class="fa-brands fa-btc"></i></div>
-            <h3 style="margin:0;">$95,430</h3>
-            <span class="green">+2.4%</span>
-            <p style="margin-top:5px; font-size:0.8rem;">Bitcoin Price</p>
-        </div>
-        <div class="stat-item glass-panel">
-            <div class="icon-box" style="margin-bottom:10px; font-size:1.5rem;"><i class="fa-brands fa-ethereum"></i></div>
-            <h3 style="margin:0;">$2,890</h3>
-            <span class="red">-0.5%</span>
-            <p style="margin-top:5px; font-size:0.8rem;">Ethereum Price</p>
-        </div>
-        <div class="stat-item glass-panel">
-            <div class="icon-box" style="margin-bottom:10px; font-size:1.5rem;"><i class="fa-solid fa-chart-pie"></i></div>
-            <h3 style="margin:0;">58.2%</h3>
-            <span class="text-muted">High</span>
-            <p style="margin-top:5px; font-size:0.8rem;">Dominance</p>
-        </div>
+    <div class="stat-item glass-panel">
+        <div class="icon-box" style="margin-bottom:10px; font-size:1.5rem; color: #3498db;"><i class="fa-solid fa-globe"></i></div>
+        <h3 style="margin:0;">$2.4T</h3>
+        <span class="green">+1.2%</span>
+        <p style="margin-top:5px; font-size:0.8rem;">Global Market Cap</p>
+    </div>
+    
+    <div class="stat-item glass-panel">
+        <div class="icon-box" style="margin-bottom:10px; font-size:1.5rem; color: #9b59b6;"><i class="fa-solid fa-money-bill-transfer"></i></div>
+        <h3 style="margin:0;">$84B</h3>
+        <span class="text-muted">24h Vol</span>
+        <p style="margin-top:5px; font-size:0.8rem;">Liquidez do Mercado</p>
     </div>
 
+    <div class="stat-item glass-panel">
+        <div class="icon-box" style="margin-bottom:10px; font-size:1.5rem; color: #e67e22;"><i class="fa-solid fa-fire"></i></div>
+        <h3 style="margin:0;">14,203</h3>
+        <span class="green">Ativas</span>
+        <p style="margin-top:5px; font-size:0.8rem;">Criptos Listadas</p>
+    </div>
+</div>
+
     <div class="section-divider"></div>
+
+    <div class="glass-panel" style="margin: 40px auto; max-width: 700px; padding: 30px; text-align: center;">
+    <h3 style="margin-bottom: 20px;">O que queres analisar hoje?</h3>
+    
+    <form action="{{ url_for('crypto_snapshot_page') }}" method="GET" style="display: flex; gap: 10px;">
+    <div class="input-group" style="margin: 0; flex-grow: 1;">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" name="ticker" placeholder="Ex: SOL, BTC, PEPE..." required style="background: rgba(0,0,0,0.3);">
+    </div>
+    <button type="submit" class="btn-glow" style="width: auto; padding: 0 30px;">
+        Ver Snapshot
+    </button>
+</form>
+    
+    <div style="margin-top: 15px; font-size: 0.9rem; color: var(--text-muted);">
+        Trending: <span style="color: var(--neon-blue); cursor: pointer;">$SOL</span>, <span style="color: var(--neon-blue); cursor: pointer;">$AI</span>, <span style="color: var(--neon-blue); cursor: pointer;">$WIF</span>
+    </div>
+</div>
+
+<div class="section-divider"></div>
 
     <div id="ai-suite" class="text-center mb-20" style="scroll-margin-top: 100px;">
         <h3><i class="fa-solid fa-robot"></i> Suite de Trading AI</h3>

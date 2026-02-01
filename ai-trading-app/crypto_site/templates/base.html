@@ -3,97 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowTrade Galaxy</title>
+    
+    <title>FlowTrade Galaxy | Simulador de Trading com AI</title>
+    <meta name="description" content="Aprende a investir em Cripto sem riscos. Usa a nossa Inteligência Artificial para analisar mercados e simular trades com $10.000 virtuais.">
+    <meta name="keywords" content="trading, crypto, simulador, bitcoin, ai, inteligência artificial, investimentos">
+    <meta name="author" content="FlowTrade Team">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://flowtrade.app/"> <meta property="og:title" content="Domina o Mercado Crypto com AI 🚀">
+    <meta property="og:description" content="Simula trades com $10k virtuais e recebe análises de AI em tempo real. Começa grátis!">
+    <meta property="og:image" content="{{ url_for('static', filename='gradient3.jpg', _external=True) }}">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="FlowTrade Galaxy - AI Trading">
+    <meta name="twitter:description" content="O simulador de trading mais avançado com análise de IA.">
     
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-    
-    <style>
-        /* Pequeno ajuste para o Banner de Cookies não partir o design */
-        #cookie-banner {
-            position: fixed; bottom: 0; left: 0; width: 100%;
-            background: rgba(10, 5, 20, 0.95); border-top: 1px solid var(--neon-purple);
-            color: white; padding: 15px; text-align: center; z-index: 2000; display: none;
-            backdrop-filter: blur(10px);
-        }
-        #cookie-banner button {
-            background: var(--neon-purple); color: white; border: none;
-            padding: 5px 15px; margin-left: 10px; cursor: pointer; border-radius: 20px;
-        }
-    </style>
 </head>
 <body>
 
-    <div class="navbar">
-        <a href="{{ url_for('home') }}" class="logo">
-            <i class="fa-solid fa-rocket"></i> FlowTrade
-        </a>
-        <div class="nav-right">
-    <a href="{{ url_for('home') }}" class="{{ 'active-link' if active_page == 'home' else '' }}">
-        <i class="fa-solid fa-house"></i> <span class="hide-mobile">Home</span>
+<div class="navbar">
+    <a href="{{ url_for('home') }}" class="logo">
+        <i class="fa-solid fa-rocket"></i> FlowTrade
     </a>
-    
-    {% if current_user.is_authenticated %}
-        <a href="{{ url_for('crypto_page') }}" class="{{ 'active-link' if active_page == 'crypto' else '' }}">
-            <i class="fa-brands fa-bitcoin"></i> <span class="hide-mobile">Mercado</span>
-        </a>
 
-        <a href="{{ url_for('paper_trading') }}" class="{{ 'active-link' if active_page == 'paper_trading' else '' }}" style="color: #f1c40f;">
-            <i class="fa-solid fa-gamepad"></i> <span class="hide-mobile">Simulador</span>
-        </a>
+    <button class="hamburger-btn" onclick="toggleMobileMenu()">
+        <i class="fa-solid fa-bars"></i>
+    </button>
 
-        <div class="user-menu-container">
-    
-    <div class="user-trigger" style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-        
-        <div class="hide-mobile" style="text-align: right; line-height: 1.2;">
-            <span style="display: block; font-weight: bold; color: white; font-size: 0.9rem;">
-                {{ current_user.username }}
-            </span>
-            <span style="display: block; font-size: 0.7rem; color: var(--success);">
-                ${{ "{:,.0f}".format(current_user.virtual_balance) }}
-            </span>
-        </div>
-
-        <div class="user-avatar-btn">
-            <i class="fa-solid {{ current_user.avatar if current_user.avatar else 'fa-user' }}"></i>
-        </div>
-    </div>
-    
-    <div class="user-dropdown-content">
-        <div class="dropdown-header">
-            <span style="font-size:0.7rem; background:var(--neon-purple); padding:2px 8px; border-radius:10px; color:white; letter-spacing:1px; font-weight:bold;">
-                PLAN BETA
-            </span>
-        </div>
-
-        <a href="{{ url_for('profile_page') }}" class="dropdown-item">
-            <i class="fa-solid fa-id-card"></i> Meu Perfil
+    <div class="nav-right desktop-only">
+        <a href="{{ url_for('home') }}" class="{{ 'active-link' if active_page == 'home' else '' }}">
+            <i class="fa-solid fa-house"></i> <span>Home</span>
         </a>
         
-        <a href="{{ url_for('history_page') }}" class="dropdown-item">
-            <i class="fa-solid fa-clock-rotate-left"></i> Histórico Global
-        </a>
-        
-        <div class="dropdown-divider"></div>
-        
-        <a href="{{ url_for('logout') }}" class="dropdown-item" style="color:var(--danger);">
-            <i class="fa-solid fa-right-from-bracket"></i> Sair
-        </a>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('crypto_page') }}" class="{{ 'active-link' if active_page == 'crypto' else '' }}">
+                <i class="fa-brands fa-bitcoin"></i> <span>Mercado</span>
+            </a>
+
+            <a href="{{ url_for('paper_trading') }}" class="{{ 'active-link' if active_page == 'paper_trading' else '' }}" style="color: #f1c40f;">
+                <i class="fa-solid fa-gamepad"></i> <span>Simulador</span>
+            </a>
+            <a href="{{ url_for('leaderboard_page') }}" class="{{ 'active-link' if active_page == 'leaderboard' else '' }}" style="color: #e67e22;">
+    <i class="fa-solid fa-trophy"></i> <span>Ranking</span>
+</a>
+
+            <div class="user-menu-container">
+                <div class="user-trigger" style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                    <div style="text-align: right; line-height: 1.2;">
+                        <span style="display: block; font-weight: bold; color: white; font-size: 0.9rem;">
+                            {{ current_user.username }}
+                        </span>
+                        <span style="display: block; font-size: 0.7rem; color: var(--success);">
+                            ${{ "{:,.0f}".format(current_user.virtual_balance) }}
+                        </span>
+                    </div>
+                    <div class="user-avatar-btn">
+                        <i class="fa-solid {{ current_user.avatar if current_user.avatar else 'fa-user' }}"></i>
+                    </div>
+                </div>
+                
+                <div class="user-dropdown-content">
+                    <div class="dropdown-header">
+                        <span style="font-size:0.7rem; background:var(--neon-purple); padding:2px 8px; border-radius:10px; color:white; letter-spacing:1px; font-weight:bold;">
+                            PLAN BETA
+                        </span>
+                    </div>
+                    <a href="{{ url_for('profile_page') }}" class="dropdown-item"><i class="fa-solid fa-id-card"></i> Meu Perfil</a>
+                    <a href="{{ url_for('history_page') }}" class="dropdown-item"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
+                    <div class="dropdown-divider"></div>
+                    <a href="{{ url_for('logout') }}" class="dropdown-item" style="color:var(--danger);"><i class="fa-solid fa-right-from-bracket"></i> Sair</a>
+                </div>
+            </div>
+
+        {% else %}
+            <div class="auth-buttons-nav">
+                <a href="{{ url_for('login_page') }}" class="btn-outline" style="margin-right:10px; padding: 5px 15px; font-size: 0.8rem;">Login</a>
+                <a href="{{ url_for('register_page') }}" class="btn-glow" style="padding: 5px 15px; font-size: 0.8rem;">Registar</a>
+            </div>
+        {% endif %}
     </div>
 </div>
 
-    {% else %}
-        <div class="auth-buttons-nav">
-            <a href="{{ url_for('login_page') }}" class="btn-outline" style="margin-right:10px; padding: 5px 15px; font-size: 0.8rem;">Login</a>
-            <a href="{{ url_for('register_page') }}" class="btn-glow" style="padding: 5px 15px; font-size: 0.8rem;">Registar</a>
+<div id="mobile-menu-overlay" class="mobile-menu-overlay">
+    <div class="mobile-menu-content glass-panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
+            <h3 style="margin:0;">Menu</h3>
+            <button onclick="toggleMobileMenu()" style="background:none; border:none; color:white; font-size:1.5rem;"><i class="fa-solid fa-xmark"></i></button>
         </div>
-    {% endif %}
-</div>
+
+        {% if current_user.is_authenticated %}
+            <div style="display:flex; align-items:center; gap:15px; margin-bottom:30px; padding-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1);">
+                <div class="user-avatar-btn" style="width:50px; height:50px; font-size:1.5rem;">
+                    <i class="fa-solid {{ current_user.avatar if current_user.avatar else 'fa-user' }}"></i>
+                </div>
+                <div>
+                    <strong>{{ current_user.username }}</strong>
+                    <div style="color:var(--success); font-weight:bold;">${{ "{:,.0f}".format(current_user.virtual_balance) }}</div>
+                </div>
+            </div>
+        {% endif %}
+
+        <nav class="mobile-nav-links">
+            <a href="{{ url_for('home') }}"><i class="fa-solid fa-house"></i> Home</a>
+            
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('crypto_page') }}"><i class="fa-brands fa-bitcoin"></i> Mercado</a>
+                <a href="{{ url_for('paper_trading') }}" style="color:#f1c40f;"><i class="fa-solid fa-gamepad"></i> Simulador</a>
+                <a href="{{ url_for('leaderboard_page') }}" style="color:#e67e22;"><i class="fa-solid fa-trophy"></i> Ranking Global</a>
+                <a href="{{ url_for('profile_page') }}"><i class="fa-solid fa-id-card"></i> Meu Perfil</a>
+                <a href="{{ url_for('history_page') }}"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
+                <a href="{{ url_for('logout') }}" style="color:var(--danger); margin-top:20px;"><i class="fa-solid fa-right-from-bracket"></i> Sair</a>
+            {% else %}
+                <a href="{{ url_for('login_page') }}"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
+                <a href="{{ url_for('register_page') }}"><i class="fa-solid fa-user-plus"></i> Registar</a>
+            {% endif %}
+        </nav>
     </div>
+</div>
 
     <div class="container mt-100" style="min-height: 80vh; padding-top: 40px;">
         

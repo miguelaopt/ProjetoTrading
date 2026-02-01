@@ -1018,3 +1018,93 @@ select option {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+/* =========================================
+   8. MENU MOBILE (HAMBÚRGUER)
+   ========================================= */
+
+/* Botão Hambúrguer (Escondido em PC) */
+.hamburger-btn {
+    display: none;
+    background: none; border: none; color: white;
+    font-size: 1.5rem; cursor: pointer;
+}
+
+/* Overlay Escuro (Fundo do menu) */
+.mobile-menu-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(5px);
+    z-index: 2000;
+    opacity: 0; visibility: hidden;
+    transition: 0.3s;
+}
+
+/* O Menu em si (Gaveta) */
+.mobile-menu-content {
+    position: absolute; top: 0; right: -300px; /* Começa fora do ecrã */
+    width: 280px; height: 100%;
+    background: rgba(10, 5, 20, 0.95);
+    border-left: 1px solid var(--neon-purple);
+    padding: 30px;
+    transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex; flex-direction: column;
+}
+
+/* Classes para Ativar o Menu */
+.mobile-menu-overlay.active { opacity: 1; visibility: visible; }
+.mobile-menu-overlay.active .mobile-menu-content { right: 0; }
+
+/* Links do Mobile */
+.mobile-nav-links a {
+    display: flex; align-items: center; gap: 15px;
+    color: white; text-decoration: none;
+    padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 1.1rem; transition: 0.2s;
+}
+.mobile-nav-links a:hover { color: var(--neon-blue); padding-left: 10px; }
+.mobile-nav-links a i { width: 25px; text-align: center; color: var(--neon-purple); }
+
+/* --- RESPONSIVIDADE --- */
+@media (max-width: 768px) {
+    /* Mostra o botão hambúrguer */
+    .hamburger-btn { display: block; }
+
+    /* Esconde o menu normal do PC */
+    .desktop-only { display: none !important; }
+    
+    /* Ajustes da Navbar */
+    .navbar { padding: 15px 20px; justify-content: space-between; }
+    
+    /* Ajuste para o conteúdo não ficar escondido pela navbar */
+    .container.mt-100 { margin-top: 80px; }
+}
+
+/* --- MENU MOBILE (Adicionar no final do ficheiro) --- */
+.hamburger-btn {
+    display: none; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;
+}
+.mobile-menu-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px);
+    z-index: 2000; opacity: 0; visibility: hidden; transition: 0.3s;
+}
+.mobile-menu-content {
+    position: absolute; top: 0; right: -300px; width: 280px; height: 100%;
+    background: rgba(10, 5, 20, 0.95); border-left: 1px solid var(--neon-purple);
+    padding: 30px; transition: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex; flex-direction: column;
+}
+.mobile-menu-overlay.active { opacity: 1; visibility: visible; }
+.mobile-menu-overlay.active .mobile-menu-content { right: 0; }
+
+.mobile-nav-links a {
+    display: flex; align-items: center; gap: 15px; color: white; text-decoration: none;
+    padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+    .hamburger-btn { display: block; } /* Mostra o botão no telemóvel */
+    .desktop-only { display: none !important; } /* Esconde o menu de PC */
+    .navbar { padding: 15px 20px; justify-content: space-between; }
+}

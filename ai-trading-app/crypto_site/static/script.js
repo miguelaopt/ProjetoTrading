@@ -2,6 +2,31 @@
 // 1. INTERFACE GLOBAL (Menus e Dropdowns)
 // ==========================================
 
+
+// ==========================================
+// 1. INTERFACE GLOBAL (Menus e Dropdowns)
+// ==========================================
+
+// Adicionar na secção "INTERFACE GLOBAL"
+function toggleMobileMenu() {
+    const menu = document.getElementById('mobile-menu-overlay');
+    menu.classList.toggle('active');
+    
+    // Bloquear scroll do site quando o menu está aberto
+    if (menu.classList.contains('active')) {
+        document.body.style.overflow = 'hidden';
+    } else {
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// Fechar ao clicar na parte escura
+document.getElementById('mobile-menu-overlay').addEventListener('click', function(e) {
+    if (e.target === this) toggleMobileMenu();
+});
+
+// ... resto do teu código ...
+
 function toggleUserMenu() {
     const menu = document.getElementById('user-menu');
     menu.classList.toggle('hidden');

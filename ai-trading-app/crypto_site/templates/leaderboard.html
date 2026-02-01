@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .rank-1 { color: #f1c40f; text-shadow: 0 0 15px rgba(241, 196, 15, 0.4); }
+    .rank-2 { color: #bdc3c7; }
+    .rank-3 { color: #cd7f32; }
+    
+    .leaderboard-row { cursor: pointer; transition: 0.2s; }
+    .leaderboard-row:hover { background: rgba(255,255,255,0.1) !important; transform: scale(1.01); }
+    .coin-badge { background: rgba(0, 243, 255, 0.1); border: 1px solid var(--neon-blue); color: var(--neon-blue); padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+</style>
+
+<div class="section-container fade-in" style="max-width: 900px; margin-top: 100px;">
+    
+    <div class="text-center mb-20">
+        <h2><i class="fa-solid fa-trophy" style="color:#f1c40f;"></i> Ranking Global</h2>
+        <p class="text-muted">Clica num trader para espiar a carteira dele.</p>
+    </div>
+
+    <div class="glass-panel table-responsive">
+        <table class="market-table-full">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Trader</th>
+                    <th>Melhor Ativo</th> <th class="text-right">Património</th>
+                    <th class="text-right">Lucro</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for trader in ranking %}
+                <tr class="leaderboard-row {{ 'current-user-row' if trader.is_current else '' }}" 
+                    onclick="window.location.href='{{ url_for('public_profile', username=trader.username) }}'">
+                    
+                    <td style="font-size: 1.2rem; font-weight:bold;">
+                        {% if loop.index == 1 %}<i class="fa-solid fa-crown rank-1"></i>
+                        {% elif loop.index == 2 %}<i class="fa-solid fa-medal rank-2"></i>
+                        {% elif loop.index == 3 %}<i class="fa-solid fa-medal rank-3"></i>
+                        {% else %}<span class="text-muted">{{ loop.index }}</span>{% endif %}
+                    </td>
+                    
+                    <td>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:35px; height:35px; background:rgba(255,255,255,0.1); border-radius:50%; display:flex; align-items:center; justify-content:center;">
+            <i class="fa-solid {{ trader.avatar }}"></i>
+        </div>
+        
+        <div>
+            <span style="font-weight:bold; {{ 'color:var(--neon-blue);' if trader.is_current else 'color:white;' }}">
+                {{ trader.username }} {{ "(Tu)" if trader.is_current else "" }}
+            </span>
+            
+            <div style="display:flex; gap:3px; margin-top:2px;">
+                {% for badge in trader.badges %}
+                    <i class="fa-solid {{ badge.icon }}" 
+                       style="color: {{ badge.color }}; font-size: 0.8rem;" 
+                       title="{{ badge.title }}"></i>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</td>
+
+                    <td>
+                        {% if trader.best_coin %}
+                            <span class="coin-badge">{{ trader.best_coin }}</span>
+                        {% else %}
+                            <span class="text-muted" style="font-size:0.8rem;">--</span>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="text-right" style="font-family:monospace;">
+                        ${{ "{:,.2f}".format(trader.net_worth) }}
+                    </td>
+                    
+                    <td class="text-right">
+                        <span class="{{ 'green' if trader.pnl_pct >= 0 else 'red' }}">
+                            {{ "{:+.2f}%".format(trader.pnl_pct) }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
