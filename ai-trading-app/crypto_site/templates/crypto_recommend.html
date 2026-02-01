@@ -54,19 +54,20 @@
                 card.style.padding = '20px';
                 
                 card.innerHTML = `
-                    <div class="badge-popular" style="background: var(--neon-blue);">${coin.tag}</div>
-                    <h3 style="margin-top:10px;">${coin.ticker}</h3>
-                    <div class="price" style="font-size: 2rem;">${coin.price}</div>
-                    <p class="green" style="font-weight:bold;">${coin.change_5d} (5d)</p>
-                    
-                    <ul class="features-list" style="margin-top:15px; text-align:left;">
-                        <li>Target: <span class="green" style="float:right">${coin.target}</span></li>
-                        <li>Stop: <span class="red" style="float:right">${coin.stop}</span></li>
-                        <li>Risco: <span style="float:right; color:#ccc">${coin.roi}</span></li>
-                    </ul>
-                    
-                    <a href="/crypto?analyze=${coin.ticker}" class="btn-outline full-width" style="text-align:center; font-size:0.8rem;">Ver Gráfico</a>
-                `;
+    <div class="badge-popular" style="background: var(--neon-blue);">${coin.tag}</div>
+    <h3 style="margin-top:10px;">${coin.ticker}</h3>
+    <div class="price" style="font-size: 2rem;">${coin.price}</div>
+    <p class="${coin.change_raw >= 0 ? 'green' : 'red'}" style="font-weight:bold;">${coin.change_5d} (5d)</p>
+    
+    <ul class="features-list" style="margin-top:15px; text-align:left;">
+        <li>Target: <span class="green" style="float:right">${coin.target}</span></li>
+        <li>Risco: <span style="float:right; color:#ccc">${coin.roi}</span></li>
+    </ul>
+    
+    <a href="/crypto/details/${coin.ticker}" class="btn-outline full-width" style="text-align:center; font-size:0.8rem;">
+        Ver Detalhes & Gráfico <i class="fa-solid fa-arrow-right"></i>
+    </a>
+`;
                 grid.appendChild(card);
             });
 
@@ -75,5 +76,27 @@
             grid.innerHTML = '<p class="text-center red">Erro ao carregar dados.</p>';
         }
     }
+</script>
+
+<script>
+    // Script de Auto-Execução
+    document.addEventListener('DOMContentLoaded', () => {
+        // 1. Ler o URL (ex: ?ticker=SOL&auto=true)
+        const urlParams = new URLSearchParams(window.location.search);
+        const ticker = urlParams.get('ticker');
+        const auto = urlParams.get('auto');
+
+        // 2. Se houver ticker, preenche o input
+        if (ticker) {
+            document.getElementById('user-ticker').value = ticker;
+            // Atualiza o gráfico do TradingView
+            updateChart(); 
+            
+            // 3. Se tiver auto=true, clica no botão por nós
+            if (auto === 'true') {
+                analyzeUserCoin();
+            }
+        }
+    });
 </script>
 {% endblock %}

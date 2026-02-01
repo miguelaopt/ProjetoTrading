@@ -114,6 +114,7 @@
             </div>
         </div>
     </div>
+    <div class="section-divider"></div>
 
     <div class="section-container mt-60">
         <div class="text-center mb-20">
@@ -137,6 +138,7 @@
             </div>
         </div>
     </div>
+    <div class="section-divider"></div>
 
     <div id="top-20-market" class="section-container mt-100 mb-100" style="scroll-margin-top: 100px;">
         <div class="text-center mb-20">
@@ -155,10 +157,24 @@
                     </tr>
                 </thead>
                 <tbody id="top-20-body">
-                    <tr><td>1</td><td><b>BTC</b> Bitcoin</td><td class="text-right">$95,430</td><td class="text-right green">+2.4%</td></tr>
-                    <tr><td>2</td><td><b>ETH</b> Ethereum</td><td class="text-right">$2,890</td><td class="text-right red">-0.5%</td></tr>
-                    <tr><td>3</td><td><b>SOL</b> Solana</td><td class="text-right">$145</td><td class="text-right green">+5.4%</td></tr>
-                </tbody>
+    {% for coin in market_data %}
+    <tr>
+        <td class="rank-num">{{ loop.index }}</td>
+        <td>
+            <div class="asset-info">
+                <i class="{{ coin.icon }} asset-icon" style="font-size:1.2rem; margin-right:10px;"></i>
+                <div style="display:flex; flex-direction:column;">
+                    <span style="font-weight:bold;">{{ coin.symbol }}</span>
+                </div>
+            </div>
+        </td>
+        <td class="text-right" style="font-family: monospace;">{{ coin.price }}</td>
+        <td class="text-right {{ coin.color }}">{{ coin.change }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="text-center loading">A carregar dados...</td></tr>
+    {% endfor %}
+</tbody>
             </table>
         </div>
     </div>

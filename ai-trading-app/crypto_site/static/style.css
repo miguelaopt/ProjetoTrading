@@ -595,38 +595,6 @@ body::after {
     .newsletter-form input { width: 100%; }
 }
 
-/* --- SENTIMENTO DE MERCADO (GAUGE) --- */
-.sentiment-box {
-    text-align: center; max-width: 800px; margin: 0 auto;
-}
-.sentiment-header {
-    display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
-}
-.sentiment-badge {
-    background: rgba(0, 255, 157, 0.1); color: var(--success);
-    padding: 5px 15px; border-radius: 20px; font-weight: bold; border: 1px solid var(--success);
-    text-shadow: 0 0 10px var(--success);
-}
-
-.gauge-container { margin: 30px 0; }
-.gauge-bar {
-    height: 15px; width: 100%; background: rgba(255,255,255,0.1);
-    border-radius: 10px; overflow: hidden; position: relative;
-}
-.gauge-fill {
-    height: 100%;
-    /* Gradiente do Medo (Vermelho) para Ganância (Verde) */
-    background: linear-gradient(90deg, #ff4d4d, #f1c40f, #00ff9d);
-    box-shadow: 0 0 20px rgba(0, 255, 157, 0.5);
-    border-radius: 10px;
-    transition: width 1s ease-in-out;
-}
-.gauge-labels {
-    display: flex; justify-content: space-between; margin-top: 10px;
-    font-size: 0.8rem; color: var(--text-muted);
-}
-.sentiment-desc { color: #ccc; font-style: italic; }
-
 /* --- PRICING TABLES (PREÇOS) --- */
 .pricing-grid {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -823,3 +791,138 @@ body::after {
 .market-table-full th { text-align: left; padding: 15px; color: var(--text-muted); font-size: 0.85rem; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.1); }
 .market-table-full td { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); color: white; font-weight: 500; }
 .text-right { text-align: right; }
+
+/* --- CORREÇÃO DOS MENUS SELECT --- */
+select {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: white;
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+}
+
+/* Isto é o que resolve o fundo branco quando abres a lista */
+select option {
+    background-color: #1a1a1a; /* Fundo Preto/Cinza Escuro */
+    color: white;              /* Texto Branco */
+    padding: 10px;
+}
+
+/* --- GAUGE CÓSMICO INTEGRADO --- */
+
+/* A Janela Principal do Gauge */
+.gauge-wrapper {
+    width: 320px; /* Um pouco mais largo para o brilho */
+    height: 160px;
+    position: relative;
+    overflow: hidden;
+    margin: 20px auto 0; /* Margem superior */
+}
+
+/* O Arco de Cores com Efeito Neon */
+.gauge-arc {
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    position: absolute;
+    top: 10px; left: 10px; /* Centralizado dentro do wrapper de 320 */
+    
+    /* Gradiente Cónico com cores mais vibrantes */
+    background: conic-gradient(
+        from 270deg,
+        #ff0000 0deg 34deg,      /* Vermelho Neon */
+        transparent 34deg 36deg,
+        #ff8c00 36deg 70deg,     /* Laranja Neon */
+        transparent 70deg 72deg,
+        #ffd700 72deg 106deg,    /* Amarelo Ouro */
+        transparent 106deg 108deg,
+        #00fa9a 108deg 142deg,   /* Verde Ciano */
+        transparent 142deg 144deg,
+        #39ff14 144deg 180deg,   /* Verde Neon Brilhante */
+        transparent 180deg 360deg
+    );
+    
+    /* Máscara para o buraco (doughnut) mais fino */
+    mask: radial-gradient(transparent 64%, black 65%);
+    -webkit-mask: radial-gradient(transparent 64%, black 65%);
+    
+    /* O BRILHO CÓSMICO (Glow effect nas bordas) */
+    filter: drop-shadow(0 0 8px rgba(255,255,255,0.3));
+    z-index: 1;
+}
+
+/* Borda subtil para definir o arco */
+.gauge-arc::after {
+    content: ''; position: absolute; top:0; left:0; right:0; bottom:0;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.1);
+    mask: inherit; -webkit-mask: inherit;
+    pointer-events: none;
+}
+
+/* Agulha "Feixe de Luz" */
+.gauge-needle {
+    position: absolute; left: 50%; bottom: 0;
+    width: 4px; height: 145px;
+    /* Gradiente para parecer luz */
+    background: linear-gradient(to top, #ffffff, rgba(255,255,255,0));
+    border-radius: 50% 50% 0 0;
+    transform-origin: bottom center;
+    transition: transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1); /* Movimento mais suave */
+    z-index: 10;
+    box-shadow: 0 0 15px rgba(255,255,255,0.8); /* Brilho intenso na agulha */
+}
+
+/* Centro brilhante */
+.gauge-center {
+    position: absolute; bottom: -15px; left: 50%;
+    transform: translateX(-50%); width: 30px; height: 30px;
+    background: radial-gradient(circle, #fff 0%, #ccc 60%);
+    box-shadow: 0 0 20px rgba(255,255,255,0.6);
+    border-radius: 50%; z-index: 11;
+}
+
+/* --- NOVO: Conteúdo Dentro do Gauge --- */
+.gauge-inner-content {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    text-align: center;
+    z-index: 5; /* Fica atrás da agulha, mas à frente do fundo */
+    padding-bottom: 25px; /* Espaço acima do pivô central */
+}
+
+/* O Número Gigante */
+.sentiment-value-huge {
+    font-size: 4.5rem;
+    font-weight: 900;
+    line-height: 1;
+    margin: 0;
+    /* Sombra de texto neon baseada na cor atual (definida no HTML) */
+    text-shadow: 0 0 30px currentColor; 
+}
+
+/* O Texto Pequeno (Label) */
+.sentiment-label-small {
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+    margin-top: 5px;
+    font-weight: 600;
+}
+
+/* --- UTILITÁRIOS DE COR (Obrigatório para funcionar) --- */
+.text-green {
+    color: #2ecc71 !important; /* Verde Neon */
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(46, 204, 113, 0.3);
+}
+
+.text-red {
+    color: #ff4d4d !important; /* Vermelho Neon */
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(255, 77, 77, 0.3);
+}
+
+/* Garante que o ícone também herda a cor se quiseres */
+.green { color: #2ecc71; }
+.red { color: #ff4d4d; }

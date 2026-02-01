@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+
 <div class="hero-container fade-in">
     <span class="beta-badge">V 1.0 BETA</span>
     <h1>Domina o Mercado com <span class="neon-text">FlowTrade</span></h1>
@@ -12,35 +13,20 @@
     </div>
 </div>
 
-<div class="stats-row fade-in">
-    <div class="stat-item">
-        <h2>$10M+</h2>
-        <p>Volume Analisado</p>
-    </div>
-    <div class="stat-item">
-        <h2>24/7</h2>
-        <p>Monitorização AI</p>
-    </div>
-    <div class="stat-item">
-        <h2>50+</h2>
-        <p>Indicadores</p>
-    </div>
-</div>
-
 <div class="ticker-container-inline">
     <div class="ticker-track">
         {% for item in ticker_data %}
         <div class="ticker-item">
             <span class="ticker-symbol">{{ item.symbol }}</span>
-            <span class="ticker-price">${{ item.price }}</span>
-            <span class="ticker-change {{ item.color }}">{{ item.sign }}{{ item.change }}%</span>
+            <span class="ticker-price">{{ item.price }}</span>
+            <span class="ticker-change {{ item.color }}">{{ item.change }}</span>
         </div>
         {% endfor %}
         {% for item in ticker_data %}
         <div class="ticker-item">
             <span class="ticker-symbol">{{ item.symbol }}</span>
-            <span class="ticker-price">${{ item.price }}</span>
-            <span class="ticker-change {{ item.color }}">{{ item.sign }}{{ item.change }}%</span>
+            <span class="ticker-price">{{ item.price }}</span>
+            <span class="ticker-change {{ item.color }}">{{ item.change }}</span>
         </div>
         {% endfor %}
     </div>
@@ -65,48 +51,73 @@
 </div>
 
 <div class="section-container mt-60 fade-in">
-    <div class="glass-panel sentiment-box">
-        <div class="sentiment-header">
-            <h3><i class="fa-solid fa-gauge-high"></i> Sentimento do Mercado</h3>
-            <span class="sentiment-badge">EXTREME GREED</span>
+    <div class="glass-panel sentiment-box" style="text-align: center; padding-bottom: 40px;">
+        
+        <div class="sentiment-header" style="margin-bottom: 10px;">
+            <h3><i class="fa-solid fa-gauge-high neon-text"></i> Fear & Greed Index</h3>
         </div>
         
-        <div class="gauge-container">
-            <div class="gauge-bar">
-                <div class="gauge-fill" style="width: 78%;"></div> </div>
-            <div class="gauge-labels">
-                <span>Extreme Fear</span>
-                <span>Neutral</span>
-                <span>Extreme Greed</span>
+        <div class="gauge-wrapper">
+            <div class="gauge-arc"></div>
+            
+            <div class="gauge-needle" style="transform: rotate({{ (sentiment.value * 1.8) - 90 }}deg);"></div>
+            <div class="gauge-center"></div>
+
+            <div class="gauge-inner-content">
+                {% set color_class = 'red' %}
+                {% if sentiment.value > 55 %}{% set color_class = 'green' %}
+                {% elif sentiment.value >= 45 %}{% set color_class = 'yellow' %} {% endif %}
+                
+                <div class="sentiment-value-huge" style="color: {{ 'var(--neon-green)' if sentiment.value > 55 else ('var(--neon-red)' if sentiment.value < 45 else '#f1c40f') }};">
+                    {{ sentiment.value }}
+                </div>
+                <div class="sentiment-label-small">
+                    {{ sentiment.text }}
+                </div>
             </div>
         </div>
-        <p class="sentiment-desc">O mercado está eufórico. A nossa AI sugere cautela com posições longas alavancadas.</p>
+
+        <p class="text-muted" style="max-width: 500px; margin: 30px auto 0; font-size: 0.9rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">
+            {% if sentiment.value < 25 %}
+                <i class="fa-solid fa-circle-exclamation red"></i> Pânico Extremo. Historicamente, investidores experientes procuram oportunidades de compra.
+            {% elif sentiment.value > 75 %}
+                <i class="fa-solid fa-rocket green"></i> Euforia Máxima. O mercado está muito esticado, cuidado com correções súbitas.
+            {% else %}
+                <i class="fa-solid fa-scale-balanced" style="color:#f1c40f"></i> Mercado Neutro. A direção é incerta, aguarda sinais mais claros da AI.
+            {% endif %}
+        </p>
     </div>
+</div>
 </div>
 
 <div class="section-divider"></div>
 
-<div class="home-markets-grid">
-    <div class="market-col glass-panel">
+<div class="section-container mt-60">
+    <div class="glass-panel" style="max-width: 800px; margin: 0 auto;">
         <div class="col-header-home">
-            <h2><i class="fa-brands fa-bitcoin"></i> Top Crypto</h2>
-            <a href="{{ url_for('crypto_page') }}" class="see-more">Ver Tudo <i class="fa-solid fa-arrow-right"></i></a>
-        </div>
+            <h2><i class="fa-brands fa-bitcoin"></i> Top 5 Mercado</h2>
+            <a href="{{ url_for('crypto_page') }}" class="see-more">Ver Top 20 <i class="fa-solid fa-arrow-right"></i></a>
+        </div> 
         <ul id="home-crypto-list" class="market-list home-list">
-            <li><span class="loading">A sincronizar blockchain...</span></li>
-        </ul>
-    </div>
-
-    <div class="market-col glass-panel">
-        <div class="col-header-home">
-            <h2><i class="fa-solid fa-chart-line"></i> Top ETFs</h2>
-            <a href="{{ url_for('etf_page') }}" class="see-more">Ver Tudo <i class="fa-solid fa-arrow-right"></i></a>
+    {% for coin in top_crypto %}
+    <li>
+        <div class="asset-info">
+            <div class="asset-icon"><i class="{{ coin.icon }}"></i></div> 
+            <span style="font-weight: bold; font-size: 1.1rem;">{{ coin.symbol }}</span>
         </div>
-        <ul id="home-etf-list" class="market-list home-list">
-            <li><span class="loading">A sincronizar Wall Street...</span></li>
-        </ul>
+        <div class="price-box">
+            <span>{{ coin.price }}</span>
+            <span class="{{ coin.color }}">{{ coin.change }}</span>
+        </div>
+    </li>
+    {% else %}
+    <li><span class="loading">A carregar dados...</span></li>
+    {% endfor %}
+</ul>
     </div>
 </div>
+
+<div class="section-divider"></div>
 
 <div class="section-container fade-in">
     <div class="section-header text-center">
@@ -185,21 +196,33 @@
     
     <div class="faq-container glass-panel">
         <div class="faq-item">
-            <button class="faq-question">O FlowTrade faz trades por mim? <i class="fa-solid fa-plus"></i></button>
+            <button class="faq-question" onclick="toggleFaq(this)">O FlowTrade faz trades por mim? <i class="fa-solid fa-plus"></i></button>
             <div class="faq-answer">
                 <p>Não. Nós fornecemos a inteligência e os dados. A decisão final e a execução na tua corretora são sempre tuas.</p>
             </div>
         </div>
         <div class="faq-item">
-            <button class="faq-question">Preciso de saber programar? <i class="fa-solid fa-plus"></i></button>
+            <button class="faq-question" onclick="toggleFaq(this)">Preciso de saber programar? <i class="fa-solid fa-plus"></i></button>
             <div class="faq-answer">
                 <p>Zero. O FlowTrade é feito para ser visual e intuitivo. Se sabes clicar num botão, sabes usar a nossa AI.</p>
             </div>
         </div>
         <div class="faq-item">
-            <button class="faq-question">É grátis? <i class="fa-solid fa-plus"></i></button>
+            <button class="faq-question" onclick="toggleFaq(this)">É grátis? <i class="fa-solid fa-plus"></i></button>
             <div class="faq-answer">
-                <p>Estamos em fase Beta gratuita! No futuro teremos planos Premium, mas os utilizadores Beta terão vantagens vitalícias.</p>
+                <p>Sim! Estamos em fase Beta gratuita. Quem se registar agora terá benefícios exclusivos quando lançarmos os planos Pro.</p>
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question" onclick="toggleFaq(this)">O Paper Trading usa dinheiro real? <i class="fa-solid fa-plus"></i></button>
+            <div class="faq-answer">
+                <p>Não. O Paper Trading é um simulador com "dinheiro virtual" (fictício) para poderes treinar e errar sem perderes as tuas poupanças reais.</p>
+            </div>
+        </div>
+        <div class="faq-item">
+            <button class="faq-question" onclick="toggleFaq(this)">Os dados são mesmo em tempo real? <i class="fa-solid fa-plus"></i></button>
+            <div class="faq-answer">
+                <p>Na versão gratuita usamos dados de exchanges públicas com ligeiro atraso ou tempo real dependendo do ativo. Na versão Pro usamos feeds institucionais de milissegundos.</p>
             </div>
         </div>
     </div>
@@ -216,14 +239,27 @@
     </div>
 </div>
 
+<script>
+    function toggleFaq(btn) {
+        const answer = btn.nextElementSibling;
+        if (answer.style.maxHeight) {
+            answer.style.maxHeight = null;
+            btn.querySelector('i').classList.remove('fa-minus');
+            btn.querySelector('i').classList.add('fa-plus');
+        } else {
+            answer.style.maxHeight = answer.scrollHeight + "px";
+            btn.querySelector('i').classList.remove('fa-plus');
+            btn.querySelector('i').classList.add('fa-minus');
+        }
+    }
+</script>
+
 <script src="https://unpkg.com/@studio-freight/lenis@1.0.42/dist/lenis.min.js"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const lenis = new Lenis({ duration: 1.2, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smooth: true });
         function raf(time) { lenis.raf(time); requestAnimationFrame(raf); }
         requestAnimationFrame(raf);
-
-        if(typeof loadHomeDataTablesOnly === 'function') loadHomeDataTablesOnly();
     });
 </script>
 {% endblock %}

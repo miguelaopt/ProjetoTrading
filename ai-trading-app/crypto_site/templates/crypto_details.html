@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .details-grid {
+        display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-top: 30px;
+    }
+    .metric-box {
+        background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px;
+        text-align: center; border: 1px solid var(--glass-border);
+    }
+    .metric-label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; }
+    .metric-value { font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
+    
+    @media (max-width: 900px) { .details-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="section-container fade-in" style="max-width: 1200px; margin-top: 100px;">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <a href="{{ url_for('crypto_recommend_page') }}" class="btn-outline" style="text-decoration:none;">
+            <i class="fa-solid fa-arrow-left"></i> Voltar aos Top Picks
+        </a>
+        <div style="text-align:right;">
+            <h1 style="margin:0; font-size: 2.5rem;">{{ ticker }}</h1>
+            <span style="color: var(--text-muted);">Relatório de Inteligência</span>
+        </div>
+    </div>
+
+    <div class="details-grid">
+        
+        <div>
+            <div class="glass-panel" style="height: 500px; padding: 10px; margin-bottom: 20px;">
+                <div id="tradingview_chart" style="height:100%; width:100%"></div>
+            </div>
+
+            <div class="glass-panel">
+                <h3><i class="fa-solid fa-crosshairs"></i> Plano de Execução</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 20px;">
+                    
+                    <div class="metric-box" style="border-color: #aaa;">
+                        <div class="metric-label">Entrada Ideal</div>
+                        <div class="metric-value">{{ plan.entry }}</div>
+                    </div>
+
+                    <div class="metric-box" style="border-color: var(--danger); background: rgba(231, 76, 60, 0.1);">
+                        <div class="metric-label" style="color: var(--danger);">Stop Loss</div>
+                        <div class="metric-value text-red">{{ plan.stop }}</div>
+                    </div>
+
+                    <div class="metric-box" style="border-color: var(--success); background: rgba(46, 204, 113, 0.1);">
+                        <div class="metric-label" style="color: var(--success);">Take Profit</div>
+                        <div class="metric-value text-green">{{ plan.target }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <div class="glass-panel mb-20 text-center">
+                <span class="metric-label">Preço Atual</span>
+                <div style="font-size: 2.5rem; font-weight: 800; color: white; margin: 10px 0;">
+                    {{ price }}
+                </div>
+                <div class="{{ 'text-green' if change_raw >= 0 else 'text-red' }}" style="font-size: 1.1rem; font-weight: bold;">
+                    {{ change_pct }} (5d)
+                </div>
+            </div>
+
+            <div class="glass-panel mb-20">
+                <h3 class="neon-text"><i class="fa-solid fa-robot"></i> AI Insight</h3>
+                <div style="margin-top: 15px; line-height: 1.6; color: #ddd; font-style: italic;">
+                    "{{ ai_comment }}"
+                </div>
+                <div style="margin-top: 20px;">
+                    <span class="metric-label">Nível de Risco</span>
+                    <div style="margin-top:5px; font-weight:bold; color: {{ 'var(--danger)' if 'Alto' in roi else ('#f1c40f' if 'Médio' in roi else 'var(--success)') }};">
+                        {{ roi }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel text-center">
+                <p class="text-muted">Gostas desta oportunidade?</p>
+                <a href="{{ url_for('paper_trading') }}" class="btn-glow full-width" style="justify-content:center;">
+                    Abrir no Simulador <i class="fa-solid fa-gamepad" style="margin-left:10px;"></i>
+                </a>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        new TradingView.widget({
+            "autosize": true,
+            "symbol": "BINANCE:{{ ticker }}USD",
+            "interval": "D",
+            "timezone": "Etc/UTC",
+            "theme": "dark",
+            "style": "1",
+            "locale": "en",
+            "enable_publishing": false,
+            "hide_top_toolbar": false,
+            "hide_legend": false,
+            "container_id": "tradingview_chart",
+            "backgroundColor": "rgba(0, 0, 0, 0)"
+        });
+    });
+</script>
+{% endblock %}

@@ -9,6 +9,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
+import requests
 
 # --- CONFIGURAÇÃO INICIAL ---
 
@@ -82,7 +83,8 @@ with app.app_context():
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    # A função .get() antiga foi substituída por db.session.get()
+    return db.session.get(User, int(user_id))
 
 # --- FUNÇÕES AUXILIARES ---
 
@@ -114,15 +116,111 @@ def get_quick_ticker_data():
     except: pass
     return data
 
+def get_market_sentiment():
+    """Busca o Fear & Greed Index real da API alternative.me"""
+    try:
+        response = requests.get("https://api.alternative.me/fng/?limit=1", timeout=5)
+        data = response.json()
+        value = int(data['data'][0]['value'])
+        classification = data['data'][0]['value_classification']
+        return {"value": value, "text": classification}
+    except:
+        # Fallback se a API falhar
+        return {"value": 50, "text": "Neutral (Offline)"}
+
+def get_top_cryptos(limit=5):
+    """
+    Busca dados reais. 
+    Removido UNI e outras instáveis para evitar lentidão.
+    """
+    # Lista limpa de moedas que o Yahoo Finance aceita bem
+    top_tickers = [
+        'BTC-USD', 'ETH-USD', 'SOL-USD', 'BNB-USD', 'XRP-USD', 
+        'DOGE-USD', 'ADA-USD', 'AVAX-USD', 'TRX-USD', 'LINK-USD', 
+        'DOT-USD', 'LTC-USD', 'BCH-USD', 'SHIB-USD', 'ADA-USD',
+        'ATOM-USD', 'XLM-USD', 'ETC-USD', 'FIL-USD', 'ICP-USD'
+    ]
+    
+    # Garante que não pedimos mais do que existem na lista
+    limit = min(limit, len(top_tickers))
+    selected = top_tickers[:limit]
+    data = []
+    
+    try:
+        # Tenta descarregar tudo de uma vez (Mais rápido)
+        tickers = yf.Tickers(" ".join(selected))
+        
+        for symbol in selected:
+            try:
+                # Aceder aos dados
+                ticker_obj = tickers.tickers.get(symbol)
+                if not ticker_obj: continue
+
+                # Tenta obter o preço de forma segura
+                # fast_info é muito mais rápido que history()
+                info = ticker_obj.fast_info
+                
+                price = info.last_price
+                prev_close = info.previous_close
+                
+                if price is None or prev_close is None:
+                    continue # Se não houver dados, salta
+
+                # Cálculos
+                change_pct = ((price - prev_close) / prev_close) * 100
+                
+                # Limpar nome (BTC-USD -> BTC)
+                clean_symbol = symbol.replace("-USD", "")
+                
+                # Ícones
+                supported_icons = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LTC', 'BCH', 'DOT', 'LINK']
+                if clean_symbol in supported_icons:
+                    icon_class = f"fa-brands fa-{clean_symbol.lower()}"
+                else:
+                    icon_class = "fa-solid fa-coins"
+
+                data.append({
+                    "symbol": clean_symbol,
+                    "price": smart_format(price),
+                    "change": f"{change_pct:+.2f}%",
+                    "change_raw": change_pct, # <--- CRUCIAL PARA A COR FUNCIONAR
+                    "icon": icon_class,
+                    "color": "text-green" if change_pct >= 0 else "text-red" # Envia a classe direto
+                })
+                
+            except Exception as inner_e:
+                # Se uma moeda falhar, ignora e segue para a próxima (Não trava o site)
+                print(f"Erro ao ler {symbol}: {inner_e}")
+                continue
+                
+    except Exception as e:
+        print(f"Erro geral YFinance: {e}")
+        
+    return data
 # --- ROTAS PRINCIPAIS ---
 
 @app.route('/')
 def home():
-    ticker_data = get_quick_ticker_data()
-    return render_template('home.html', active_page='home', ticker_data=ticker_data)
+    # 1. Buscar Sentimento Real
+    sentiment = get_market_sentiment()
+    
+    # 2. Buscar Top 5 para a Home
+    top_5_crypto = get_top_cryptos(limit=5)
+    
+    # 3. Ticker Tape (Dados rápidos)
+    ticker_data = get_quick_ticker_data() # Mantém a tua função antiga ou usa a nova
+    
+    return render_template('home.html', 
+                           active_page='home', 
+                           sentiment=sentiment, 
+                           top_crypto=top_5_crypto,
+                           ticker_data=ticker_data)
 
 @app.route('/crypto')
-def crypto_page(): return render_template('crypto.html', active_page='crypto')
+def crypto_page():
+    # Agora a página crypto carrega as Top 20 reais
+    top_20 = get_top_cryptos(limit=20)
+    return render_template('crypto.html', active_page='crypto', market_data=top_20)
 
 @app.route('/crypto/analyze')
 @login_required
@@ -340,33 +438,98 @@ def decode_market():
 @app.route('/get_recommendations', methods=['GET'])
 def get_recommendations():
     try:
-        # Moedas populares para scanear
-        candidates = ['SOL-USD', 'DOGE-USD', 'AVAX-USD', 'LINK-USD', 'FET-USD', 'PEPE-USD', 'XRP-USD', 'ADA-USD']
+        # LISTA EXPANDIDA (Top 50 + Populares)
+        # Isto simula "toda a internet" relevante sem matar o servidor
+        candidates = [
+            # Giants
+            'BTC-USD', 'ETH-USD', 'SOL-USD', 'BNB-USD', 'XRP-USD', 'ADA-USD',
+            # Layer 1 & 2
+            'AVAX-USD', 'DOT-USD', 'MATIC-USD', 'LINK-USD', 'TRX-USD', 'ATOM-USD',
+            'NEAR-USD', 'APT-USD', 'SUI-USD', 'ARB-USD', 'OP-USD', 'INJ-USD',
+            # AI & Gaming
+            'RNDR-USD', 'FET-USD', 'GRT-USD', 'IMX-USD', 'SAND-USD', 'MANA-USD',
+            # Memes (Alta Volatilidade = Boas Recomendações)
+            'DOGE-USD', 'SHIB-USD', 'PEPE-USD', 'WIF-USD', 'FLOKI-USD', 'BONK-USD'
+        ]
+        
         recommendations = []
         
-        for t in candidates:
-            try:
-                stock = yf.Ticker(t)
-                hist = stock.history(period="5d")
-                if len(hist) > 1:
-                    curr = hist['Close'].iloc[-1]
-                    start = hist['Close'].iloc[0]
-                    change = ((curr - start) / start) * 100
-                    
-                    if change > 0: # Só mostra se estiver positivo na semana
-                        recommendations.append({
-                            "ticker": t.replace("-USD", ""),
-                            "price": f"${curr:.4f}" if curr < 1 else f"${curr:.2f}",
-                            "change_5d": f"+{change:.1f}%",
-                            "target": f"${curr*1.15:.4f}",
-                            "stop": f"${curr*0.90:.4f}",
-                            "roi": "Médio/Alto",
-                            "tag": "Momentum"
-                        })
-            except: continue # Se falhar uma moeda, passa à próxima
+        # Download em massa (Muito mais rápido que um a um)
+        tickers = yf.Tickers(" ".join(candidates))
         
-        return jsonify(recommendations)
+        for symbol in candidates:
+            try:
+                # Usar fast_info ou history curto
+                ticker_obj = tickers.tickers.get(symbol)
+                if not ticker_obj: continue
+                
+                # Precisamos de 7 dias para ver a tendência
+                hist = ticker_obj.history(period="7d")
+                if len(hist) < 5: continue
+                
+                curr = hist['Close'].iloc[-1]
+                start_week = hist['Close'].iloc[0]
+                change_pct = ((curr - start_week) / start_week) * 100
+                
+                clean_ticker = symbol.replace("-USD", "")
+                
+                # --- A LÓGICA DE FILTRO (O "Scanner") ---
+                # Só mostra se tiver movimento interessante (>3% ou <-2%)
+                # Assim não enchemos a lista de moedas paradas
+                
+                tag = ""
+                roi = ""
+                stop = 0.0
+                target = 0.0
+                include = False
+
+                if change_pct > 15:
+                    tag = "🔥 Super Momentum"
+                    roi = "Alto Risco / Alto Retorno"
+                    stop = curr * 0.88
+                    target = curr * 1.25
+                    include = True
+                elif change_pct > 5:
+                    tag = "🚀 Tendência Alta"
+                    roi = "Médio"
+                    stop = curr * 0.94
+                    target = curr * 1.12
+                    include = True
+                elif change_pct < -10:
+                    tag = "💎 Oversold (Dip)"
+                    roi = "Oportunidade Compra"
+                    stop = curr * 0.85
+                    target = curr * 1.30
+                    include = True
+                elif change_pct < -4:
+                    tag = "📉 Correção Curta"
+                    roi = "Médio"
+                    stop = curr * 0.92
+                    target = curr * 1.10
+                    include = True
+
+                if include:
+                    recommendations.append({
+                        "ticker": clean_ticker,
+                        "price": smart_format(curr),
+                        "change_5d": f"{change_pct:+.1f}%",
+                        "change_raw": change_pct,
+                        "target": smart_format(target),
+                        "stop": smart_format(stop),
+                        "roi": roi,
+                        "tag": tag
+                    })
+                
+            except: continue
+
+        # Ordenar por "Excitação" (Maior movimento absoluto primeiro)
+        recommendations.sort(key=lambda x: abs(x['change_raw']), reverse=True)
+        
+        # Retorna Top 9 para encher a grelha
+        return jsonify(recommendations[:9])
+
     except Exception as e:
+        print(f"Erro Recs: {e}")
         return jsonify([])
 
 # --- PAPER TRADING (SIMULADOR) ---
@@ -374,34 +537,38 @@ def get_recommendations():
 @app.route('/paper_trading')
 @login_required
 def paper_trading():
-    # Calcular valor atual do portfólio
     portfolio_items = Portfolio.query.filter_by(user_id=current_user.id).all()
     transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.timestamp.desc()).limit(10).all()
     
     total_portfolio_value = 0
     enriched_portfolio = []
+    
+    # Dados para o Gráfico de Pizza (Chart.js)
+    allocation_labels = []
+    allocation_data = []
 
     for item in portfolio_items:
         try:
-            # Tenta buscar preço em tempo real
+            # Tenta preço live (com cache de 1 minuto seria ideal, mas aqui direto)
             ticker = yf.Ticker(f"{item.symbol}-USD")
             hist = ticker.history(period="1d")
             if not hist.empty:
                 current_price = hist['Close'].iloc[-1]
             else:
-                # Tenta sem o sufixo -USD
-                ticker = yf.Ticker(item.symbol)
+                ticker = yf.Ticker(item.symbol) # Tenta sem -USD
                 hist = ticker.history(period="1d")
                 current_price = hist['Close'].iloc[-1] if not hist.empty else item.avg_price
         except:
-            current_price = item.avg_price # Se der erro de rede, usa o preço de compra
+            current_price = item.avg_price # Fallback
         
         value = item.amount * current_price
         total_portfolio_value += value
         
         profit_pct = 0
+        profit_abs = 0
         if item.avg_price > 0:
             profit_pct = ((current_price - item.avg_price) / item.avg_price) * 100
+            profit_abs = value - (item.amount * item.avg_price)
         
         enriched_portfolio.append({
             "symbol": item.symbol,
@@ -409,15 +576,28 @@ def paper_trading():
             "avg_price": item.avg_price,
             "current_price": current_price,
             "total_value": value,
-            "profit_pct": profit_pct
+            "profit_pct": profit_pct,
+            "profit_abs": profit_abs
         })
 
+        # Adicionar dados para o gráfico
+        if value > 1: # Só mostra no gráfico se valer mais de $1
+            allocation_labels.append(item.symbol)
+            allocation_data.append(round(value, 2))
+
     net_worth = current_user.virtual_balance + total_portfolio_value
+    
+    # Adicionar o saldo livre ao gráfico também
+    if current_user.virtual_balance > 1:
+        allocation_labels.append("Cash (USD)")
+        allocation_data.append(round(current_user.virtual_balance, 2))
 
     return render_template('paper_trading.html', 
                            portfolio=enriched_portfolio, 
                            transactions=transactions,
                            net_worth=net_worth,
+                           alloc_labels=json.dumps(allocation_labels),
+                           alloc_data=json.dumps(allocation_data),
                            active_page='paper_trading')
 
 @app.route('/paper_trading/trade', methods=['POST'])
@@ -425,29 +605,29 @@ def paper_trading():
 def execute_trade():
     symbol = request.form.get('symbol', '').upper().strip()
     action = request.form.get('action') # BUY ou SELL
+    trade_mode = request.form.get('trade_mode') # 'units' (Qtd Moedas) ou 'fiat' (Valor em $)
     
     try:
-        amount = float(request.form.get('amount'))
+        input_value = float(request.form.get('amount')) # O valor que o user escreveu
     except:
-        flash('Quantidade inválida.', 'error')
+        flash('Valor inválido.', 'error')
         return redirect(url_for('paper_trading'))
 
-    if amount <= 0:
-        flash('A quantidade deve ser maior que zero.', 'error')
+    if input_value <= 0:
+        flash('O valor deve ser maior que zero.', 'error')
         return redirect(url_for('paper_trading'))
 
-    # Obter preço real
+    # 1. Obter Preço Real
     try:
         ticker_name = f"{symbol}-USD" if not symbol.endswith("-USD") else symbol
         ticker = yf.Ticker(ticker_name)
         hist = ticker.history(period="1d")
         
         if hist.empty:
-            # Fallback para tentar sem -USD (ex: AAPL)
-            ticker = yf.Ticker(symbol)
+            ticker = yf.Ticker(symbol) # Tenta sem -USD
             hist = ticker.history(period="1d")
             if hist.empty:
-                flash(f'Moeda/Ação "{symbol}" não encontrada.', 'error')
+                flash(f'Moeda "{symbol}" não encontrada.', 'error')
                 return redirect(url_for('paper_trading'))
                 
         price = hist['Close'].iloc[-1]
@@ -455,14 +635,26 @@ def execute_trade():
         flash('Erro de conexão ao obter preço. Tenta novamente.', 'error')
         return redirect(url_for('paper_trading'))
 
-    cost = price * amount
+    # 2. Calcular Quantidade e Custo baseado no Modo
+    amount = 0.0
+    cost = 0.0
 
+    if trade_mode == 'fiat':
+        # User quer gastar X dólares (ex: $500 de BTC)
+        cost = input_value
+        amount = cost / price # Calcula quantas moedas dá
+    else:
+        # User quer comprar X moedas (ex: 0.5 BTC)
+        amount = input_value
+        cost = amount * price
+
+    # 3. Lógica de Compra / Venda
     if action == 'BUY':
         if current_user.virtual_balance >= cost:
-            # 1. Tirar dinheiro
+            # Tirar dinheiro
             current_user.virtual_balance -= cost
             
-            # 2. Adicionar ao Portfolio
+            # Adicionar ao Portfolio
             position = Portfolio.query.filter_by(user_id=current_user.id, symbol=symbol).first()
             if position:
                 # Preço Médio Ponderado
@@ -474,28 +666,30 @@ def execute_trade():
                 new_pos = Portfolio(user_id=current_user.id, symbol=symbol, amount=amount, avg_price=price)
                 db.session.add(new_pos)
             
-            flash(f'Compraste {amount} {symbol} a ${price:.2f}!', 'success')
+            flash(f'Compraste {amount:.6f} {symbol} (Total: ${cost:.2f})', 'success')
         else:
-            flash('Saldo insuficiente!', 'error')
+            flash(f'Saldo insuficiente! Precisas de ${cost:.2f}', 'error')
             return redirect(url_for('paper_trading'))
 
     elif action == 'SELL':
         position = Portfolio.query.filter_by(user_id=current_user.id, symbol=symbol).first()
-        if position and position.amount >= amount:
-            # 1. Adicionar dinheiro
+        
+        # Verificar se tem moedas suficientes
+        if position and position.amount >= (amount * 0.99999): # Margem de erro pequena para floats
+            # Adicionar dinheiro
             current_user.virtual_balance += cost
             
-            # 2. Remover do Portfolio
+            # Remover do Portfolio
             position.amount -= amount
             if position.amount <= 0.000001: # Limpeza de "pó"
                 db.session.delete(position)
             
-            flash(f'Vendeste {amount} {symbol} a ${price:.2f}!', 'success')
+            flash(f'Vendeste {amount:.6f} {symbol} (Recebeste: ${cost:.2f})', 'success')
         else:
-            flash('Não tens quantidade suficiente para vender.', 'error')
+            flash(f'Não tens {amount:.6f} {symbol} para vender.', 'error')
             return redirect(url_for('paper_trading'))
 
-    # 3. Registar Transação
+    # 4. Registar Transação
     tx = Transaction(user_id=current_user.id, symbol=symbol, type=action, price=price, amount=amount, total_value=cost)
     db.session.add(tx)
     db.session.commit()
@@ -511,6 +705,76 @@ def reset_account():
     db.session.commit()
     flash('Conta reiniciada! Tens $10,000 virtuais novamente.', 'success')
     return redirect(url_for('paper_trading'))
+
+# --- ADICIONA ESTA ROTA NO TEU APP.PY ---
+
+@app.route('/crypto/details/<ticker>')
+@login_required
+def crypto_details(ticker):
+    ticker = ticker.upper()
+    yf_ticker = f"{ticker}-USD"
+    
+    # 1. Buscar Dados Reais
+    try:
+        stock = yf.Ticker(yf_ticker)
+        hist = stock.history(period="7d")
+        
+        if hist.empty:
+            flash(f"Dados não encontrados para {ticker}", "error")
+            return redirect(url_for('crypto_recommend_page'))
+            
+        current_price = hist['Close'].iloc[-1]
+        start_price = hist['Close'].iloc[0]
+        change_pct = ((current_price - start_price) / start_price) * 100
+        
+        # 2. Gerar Plano Automático (Simulação de AI)
+        # Se quiseres usar o Gemini aqui, podes chamar a função da AI, 
+        # mas para ser rápido vamos usar a lógica matemática que já tinhas.
+        
+        comment = ""
+        stop_loss = 0.0
+        target = 0.0
+        roi_label = ""
+        
+        if change_pct > 10:
+            comment = f"O {ticker} está com um momentum explosivo. A tendência é forte, mas cuidado com correções de curto prazo."
+            roi_label = "Alto Risco / Alto Retorno"
+            stop_loss = current_price * 0.90
+            target = current_price * 1.20
+        elif change_pct > 0:
+            comment = f"Tendência de alta saudável para {ticker}. Bons indicadores de volume a suportar a subida."
+            roi_label = "Médio"
+            stop_loss = current_price * 0.95
+            target = current_price * 1.10
+        elif change_pct < -10:
+            comment = f"O {ticker} está em zona de sobrevenda (Oversold). O RSI indica uma possível reversão em breve."
+            roi_label = "Oportunidade de Desconto"
+            stop_loss = current_price * 0.85
+            target = current_price * 1.30
+        else:
+            comment = f"O {ticker} está numa fase de acumulação lateral. Aguardar quebra de resistência."
+            roi_label = "Baixo (Neutro)"
+            stop_loss = current_price * 0.97
+            target = current_price * 1.05
+
+        return render_template('crypto_details.html',
+                               ticker=ticker,
+                               price=smart_format(current_price),
+                               change_pct=f"{change_pct:+.2f}%",
+                               change_raw=change_pct,
+                               ai_comment=comment,
+                               roi=roi_label,
+                               plan={
+                                   "entry": smart_format(current_price),
+                                   "stop": smart_format(stop_loss),
+                                   "target": smart_format(target)
+                               },
+                               active_page='crypto')
+
+    except Exception as e:
+        print(f"Erro Details: {e}")
+        flash("Erro ao carregar detalhes.", "error")
+        return redirect(url_for('crypto_recommend_page'))
 
 if __name__ == '__main__':
     # Porta 5000 forçada para evitar erros
