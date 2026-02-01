@@ -97,16 +97,23 @@
             <div class="home-markets-grid" style="margin:0; padding:0; gap:20px;">
                 <div>
                     <h4 class="green"><i class="fa-solid fa-arrow-trend-up"></i> Top Gainers</h4>
-                    <ul id="gainers-list" class="market-list"><li><span class="loading">A calcular...</span></li></ul>
+                    <ul id="gainers-list" class="market-list">
+                        <li><span>SOL</span> <span class="green">+5.4%</span></li>
+                        <li><span>AVAX</span> <span class="green">+3.2%</span></li>
+                        <li><span>LINK</span> <span class="green">+2.1%</span></li>
+                    </ul>
                 </div>
                 <div>
                     <h4 class="red"><i class="fa-solid fa-arrow-trend-down"></i> Top Losers</h4>
-                    <ul id="losers-list" class="market-list"><li><span class="loading">A calcular...</span></li></ul>
+                    <ul id="losers-list" class="market-list">
+                        <li><span>DOGE</span> <span class="red">-2.1%</span></li>
+                        <li><span>PEPE</span> <span class="red">-4.5%</span></li>
+                        <li><span>XRP</span> <span class="red">-1.2%</span></li>
+                    </ul>
                 </div>
             </div>
         </div>
     </div>
-    <div class="section-divider"></div>
 
     <div class="section-container mt-60">
         <div class="text-center mb-20">
@@ -148,11 +155,20 @@
                     </tr>
                 </thead>
                 <tbody id="top-20-body">
-                    <tr><td colspan="4" class="text-center loading">A carregar dados globais...</td></tr>
+                    <tr><td>1</td><td><b>BTC</b> Bitcoin</td><td class="text-right">$95,430</td><td class="text-right green">+2.4%</td></tr>
+                    <tr><td>2</td><td><b>ETH</b> Ethereum</td><td class="text-right">$2,890</td><td class="text-right red">-0.5%</td></tr>
+                    <tr><td>3</td><td><b>SOL</b> Solana</td><td class="text-right">$145</td><td class="text-right green">+5.4%</td></tr>
                 </tbody>
             </table>
         </div>
     </div>
 
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Se tiveres uma função para carregar dados reais, chama-a aqui
+        // ex: loadMarketData();
+    });
+</script>
 {% endblock %}

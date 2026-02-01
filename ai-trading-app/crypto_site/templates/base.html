@@ -4,60 +4,116 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlowTrade Galaxy</title>
+    
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Pequeno ajuste para o Banner de Cookies não partir o design */
+        #cookie-banner {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: rgba(10, 5, 20, 0.95); border-top: 1px solid var(--neon-purple);
+            color: white; padding: 15px; text-align: center; z-index: 2000; display: none;
+            backdrop-filter: blur(10px);
+        }
+        #cookie-banner button {
+            background: var(--neon-purple); color: white; border: none;
+            padding: 5px 15px; margin-left: 10px; cursor: pointer; border-radius: 20px;
+        }
+    </style>
 </head>
 <body>
 
-    <nav class="navbar glass">
-        <div class="nav-left">
-            <a href="{{ url_for('home') }}" class="logo">
-                <i class="fa-solid fa-meteor"></i> FlowTrade
-            </a>
-        </div>
-        
+    <div class="navbar">
+        <a href="{{ url_for('home') }}" class="logo">
+            <i class="fa-solid fa-rocket"></i> FlowTrade
+        </a>
+
         <div class="nav-right">
-            <div class="nav-dropdown-container">
-                <a href="{{ url_for('crypto_page') }}" class="nav-link {{ 'active-link' if active_page == 'crypto' else '' }}">
-                    Crypto <i class="fa-solid fa-chevron-down" style="font-size: 0.7em; margin-left: 5px;"></i>
-                </a>
-                <div class="nav-dropdown-content glass">
-                    <a href="{{ url_for('crypto_page') }}#ai-suite"><i class="fa-solid fa-robot"></i> TradingHelp</a>
-                    <a href="{{ url_for('crypto_page') }}#top-movers"><i class="fa-solid fa-layer-group"></i> Movimentos</a>
-                    <a href="{{ url_for('crypto_page') }}#top-20-market"><i class="fa-solid fa-list-ol"></i> Top 20</a>
-                </div>
+            <a href="{{ url_for('home') }}" class="{{ 'active-link' if active_page == 'home' else '' }}">Home</a>
+            
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('crypto_page') }}" class="{{ 'active-link' if active_page == 'crypto' else '' }}">Mercado</a>
+                
+                <a href="{{ url_for('paper_trading') }}" class="{{ 'active-link' if active_page == 'paper_trading' else '' }}" style="color: #f1c40f;">
+                    <i class="fa-solid fa-gamepad"></i> Simulador
+                </a>           
+
+                <a href="{{ url_for('logout') }}" class="btn-outline" style="font-size: 0.8rem;">Sair</a>
+            {% else %}
+                <a href="{{ url_for('login_page') }}" class="btn-glow">Login / Registar</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="container mt-100" style="min-height: 80vh; padding-top: 40px;">
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="glass-panel" style="margin-bottom: 20px; border-color: {{ 'var(--success)' if category == 'success' else 'var(--danger)' }}; color: white;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="pro-footer">
+        <div class="footer-content">
+            <div class="footer-col">
+                <h4>FlowTrade Galaxy</h4>
+                <p>Democratizamos o acesso à inteligência artificial para investidores iniciantes. Aprende a investir sem riscos.</p>
+            </div>
+            
+            <div class="footer-col">
+                <h4>Plataforma</h4>
+                <a href="{{ url_for('home') }}">Início</a>
+                <a href="{{ url_for('crypto_page') }}">Mercado Crypto</a>
+                <a href="{{ url_for('paper_trading') }}">Simulador</a>
             </div>
 
-            <a href="{{ url_for('etf_page') }}" class="{{ 'active-link' if active_page == 'etf' else '' }}">ETFs</a>
-            <a href="{{ url_for('screener_page') }}" class="{{ 'active-link' if active_page == 'screener' else '' }}">Screener</a>
-            <a href="{{ url_for('ai_page') }}" class="{{ 'active-link' if active_page == 'ai' else '' }}">AI Analysis</a>
-            <a href="{{ url_for('risk_page') }}" class="{{ 'active-link' if active_page == 'risk' else '' }}">Risk</a>
-            
-             <div class="user-dropdown-container">
-                <div class="user-icon" onclick="toggleUserMenu()">
-                    <i class="fa-regular fa-user"></i>
-                </div>
-                
-                <div id="user-menu" class="dropdown-content glass hidden">
-                    {% if current_user.is_authenticated %}
-                        <div style="padding: 12px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--neon-blue);">
-                            Olá, {{ current_user.name }}
-                        </div>
-                        <a href="#">Perfil</a>
-                        <a href="{{ url_for('logout') }}" style="color: #ff4d4d;">Sair <i class="fa-solid fa-right-from-bracket"></i></a>
-                    {% else %}
-                        <a href="{{ url_for('login_page') }}">Login</a>
-                        <a href="{{ url_for('signup_page') }}">Sign Up</a>
-                    {% endif %}
+            <div class="footer-col">
+                <h4>Legal</h4>
+                <a href="{{ url_for('terms_page') }}">Termos de Uso</a>
+                <a href="{{ url_for('privacy_page') }}">Política de Privacidade</a>
+                <span style="font-size: 0.8rem; color: #555; display: block; margin-top: 10px;">
+                    Isenção de Responsabilidade: Não somos consultores financeiros.
+                </span>
+            </div>
+
+            <div class="footer-col">
+                <h4>Comunidade</h4>
+                <div class="social-icons">
+                    <i class="fa-brands fa-twitter"></i>
+                    <i class="fa-brands fa-discord"></i>
+                    <i class="fa-brands fa-instagram"></i>
                 </div>
             </div>
         </div>
-    </nav>
+        <div class="copyright">
+            &copy; 2026 FlowTrade Galaxy. Todos os direitos reservados.
+        </div>
+    </footer>
 
-    <main class="page-content fade-in">
-        {% block content %}{% endblock %}
-    </main>
+    <div id="cookie-banner">
+        🍪 Usamos cookies para melhorar a tua experiência. Ao continuar, aceitas a nossa <a href="{{ url_for('privacy_page') }}" style="color: var(--neon-blue);">Política de Privacidade</a>.
+        <button onclick="acceptCookies()">Aceitar</button>
+    </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        if (!localStorage.getItem('cookiesAccepted')) {
+            document.getElementById('cookie-banner').style.display = 'block';
+        }
+        function acceptCookies() {
+            localStorage.setItem('cookiesAccepted', 'true');
+            document.getElementById('cookie-banner').style.display = 'none';
+        }
+    </script>
 </body>
 </html>

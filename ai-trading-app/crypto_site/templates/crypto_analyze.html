@@ -2,27 +2,14 @@
 
 {% block content %}
 <style>
-    /* Estilo para os Atalhos Rápidos (Chips) */
-    .quick-chips {
-        display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap;
-    }
-    .chip {
-        background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
-        padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; color: var(--text-muted);
-        cursor: pointer; transition: 0.3s;
-    }
+    .quick-chips { display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap; }
+    .chip { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); padding: 5px 15px; border-radius: 20px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; transition: 0.3s; }
     .chip:hover { background: var(--neon-blue); color: black; border-color: var(--neon-blue); }
-
-    /* Estilo para a explicação (Brain Section) */
-    .brain-grid {
-        display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 40px;
-        text-align: left;
-    }
+    .brain-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 40px; text-align: left; }
     .brain-item h4 { font-size: 0.9rem; margin-bottom: 5px; color: white; }
     .brain-item p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
     .brain-icon { color: var(--neon-purple); font-size: 1.2rem; margin-bottom: 10px; }
-    
-    @media (max-width: 768px) { .brain-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .brain-grid { grid-template-columns: 1fr; } div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; } }
 </style>
 
 <div class="section-container fade-in" style="max-width: 900px; margin-top: 100px;">
@@ -55,7 +42,7 @@
             
             <div class="input-group mt-20">
                 <i class="fa-solid fa-wallet"></i>
-                <input type="number" id="user-investment" placeholder="Investimento (€)?">
+                <input type="number" id="user-investment" placeholder="Investimento (€)? (Opcional)">
             </div>
 
             <button class="btn-glow full-width" onclick="analyzeUserCoin()">
@@ -86,18 +73,47 @@
 
         <div>
             <div class="glass-panel mb-20" style="padding:10px; height: 350px;">
-                <div class="tradingview-widget-container" style="height:100%; width:100%">
-                    <div id="tradingview_chart" style="height:calc(100% - 32px); width:100%"></div>
-                    <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
-                </div>
+                <div id="tradingview_chart" style="height:100%; width:100%"></div>
             </div>
 
             <div id="analysis-loading" class="hidden glass-panel text-center">
                 <span class="loading"><i class="fa-solid fa-circle-notch fa-spin"></i> A consultar os oráculos digitais...</span>
             </div>
             
-            <div id="analysis-result" class="hidden fade-in">
+            <div id="analysis-result" class="hidden fade-in glass-panel" style="border: 1px solid var(--neon-blue);">
+                <h3 id="res-verdict" class="text-center" style="margin-top:0;"></h3>
+                <p id="res-explanation" class="text-center text-muted" style="font-style: italic; font-size: 0.9rem; margin-bottom: 20px;"></p>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; text-align: center;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+                        <span style="font-size: 0.7rem; color: #aaa; text-transform: uppercase;">Entrada</span><br>
+                        <strong id="res-entry" style="color: #fff;">-</strong>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+                        <span style="font-size: 0.7rem; color: #aaa; text-transform: uppercase;">Stop Loss</span><br>
+                        <strong id="res-stop" style="color: #e74c3c;">-</strong>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px;">
+                        <span style="font-size: 0.7rem; color: #aaa; text-transform: uppercase;">Alvo (TP)</span><br>
+                        <strong id="res-target" style="color: #2ecc71;">-</strong>
+                    </div>
                 </div>
+
+                <div style="background: rgba(46, 204, 113, 0.1); border: 1px solid #2ecc71; padding: 15px; border-radius: 10px; text-align: center;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <span style="color: #ccc; font-size: 0.9rem;">Lucro Estimado:</span>
+                        <strong id="res-profit" style="font-size: 1.2rem; color: #2ecc71;">$0.00</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: #ccc; font-size: 0.9rem;">ROI Potencial:</span>
+                        <strong id="res-roi" style="font-size: 1rem; color: #f1c40f;">0%</strong>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 10px; text-align: center; font-size: 0.7rem; color: #666;">
+                    *Valores simulados baseados no teu investimento. Não é conselho financeiro.
+                </div>
+            </div>
         </div>
 
     </div>
@@ -108,41 +124,40 @@
     // 1. Inicializar Gráfico
     let widget;
     document.addEventListener('DOMContentLoaded', () => {
-        loadChart('BTCUSD'); // Default
+        loadChart('BTCUSD'); 
     });
 
     function loadChart(symbol) {
-        if(widget) return; // Já existe?
+        if(widget) return;
         new TradingView.widget({
             "autosize": true,
-            "symbol": "BINANCE:" + symbol, // Usa Binance como fonte
+            "symbol": "BINANCE:" + symbol,
             "interval": "D",
             "timezone": "Etc/UTC",
             "theme": "dark",
             "style": "1",
             "locale": "en",
             "enable_publishing": false,
-            "allow_symbol_change": false, // O user muda pelo nosso input
+            "allow_symbol_change": false,
             "container_id": "tradingview_chart",
-            "hide_top_toolbar": true,     // Mais limpo
+            "hide_top_toolbar": true,
             "hide_legend": true,
             "save_image": false,
-            "backgroundColor": "rgba(0, 0, 0, 0)" // Transparente
+            "backgroundColor": "rgba(0, 0, 0, 0)"
         });
     }
 
-    // 2. Atualizar Gráfico quando user escreve
+    // 2. Atualizar Gráfico
     let timeout = null;
     function updateChart() {
         clearTimeout(timeout);
         timeout = setTimeout(() => {
             const ticker = document.getElementById('user-ticker').value.toUpperCase();
             if(ticker.length > 2) {
-                // Recarregar widget com novo símbolo
                 document.getElementById('tradingview_chart').innerHTML = '';
                 new TradingView.widget({
                     "autosize": true,
-                    "symbol": ticker + "USD", // Tenta adivinhar o par USD
+                    "symbol": ticker + "USD",
                     "interval": "D",
                     "theme": "dark",
                     "style": "1",
@@ -151,19 +166,64 @@
                     "backgroundColor": "rgba(0, 0, 0, 0)"
                 });
             }
-        }, 1000); // Espera 1s depois de escrever
+        }, 1000);
     }
 
-    // 3. Preencher via Atalho
     function fillTicker(symbol) {
         document.getElementById('user-ticker').value = symbol;
         updateChart();
     }
-</script>
 
-<style>
-    @media (max-width: 768px) {
-        div[style*="grid-template-columns"] { grid-template-columns: 1fr !important; }
+    // 3. ANÁLISE COM LUCRO
+    async function analyzeUserCoin() {
+        const ticker = document.getElementById('user-ticker').value;
+        const investment = document.getElementById('user-investment').value;
+
+        if(!ticker) { alert("Escreve o símbolo da moeda!"); return; }
+
+        // Mostrar Loading
+        document.getElementById('analysis-loading').classList.remove('hidden');
+        document.getElementById('analysis-result').classList.add('hidden');
+
+        try {
+            const response = await fetch('/analyze_user_coin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ticker: ticker, investment: investment })
+            });
+
+            const data = await response.json();
+
+            if(data.error) {
+                alert("Erro: " + data.error);
+            } else {
+                // Preencher dados básicos
+                const verdict = document.getElementById('res-verdict');
+                verdict.innerText = data.verdict.toUpperCase();
+                verdict.style.color = data.verdict.includes('Compra') ? '#2ecc71' : (data.verdict.includes('Venda') ? '#e74c3c' : '#f1c40f');
+
+                document.getElementById('res-explanation').innerText = data.explanation;
+                document.getElementById('res-entry').innerText = data.plan.entry;
+                document.getElementById('res-stop').innerText = data.plan.stop;
+                document.getElementById('res-target').innerText = data.plan.target;
+
+                // PREENCHER O LUCRO (NOVO)
+                if (data.math) {
+                    document.getElementById('res-profit').innerText = data.math.potential_profit;
+                    document.getElementById('res-roi').innerText = data.math.roi;
+                } else {
+                    document.getElementById('res-profit').innerText = "$0.00";
+                    document.getElementById('res-roi').innerText = "0%";
+                }
+
+                // Mostrar Resultado
+                document.getElementById('analysis-result').classList.remove('hidden');
+            }
+        } catch (e) {
+            alert("Erro de conexão com a AI.");
+        } finally {
+            document.getElementById('analysis-loading').classList.add('hidden');
+        }
     }
-</style>
+</script>
 {% endblock %}
