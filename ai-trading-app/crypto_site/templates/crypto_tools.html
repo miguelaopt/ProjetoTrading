@@ -2,169 +2,288 @@
 
 {% block content %}
 <style>
+    /* Design Moderno para Inputs com Ícones */
+    .input-wrapper {
+        position: relative;
+        margin-bottom: 15px;
+    }
+    .input-wrapper i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #666;
+        transition: 0.3s;
+    }
+    .input-modern {
+        width: 100%;
+        padding: 12px 12px 12px 45px; /* Espaço para o ícone */
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        color: white;
+        font-family: 'Inter', sans-serif;
+        transition: all 0.3s ease;
+    }
+    .input-modern:focus {
+        border-color: var(--neon-blue);
+        background: rgba(0, 0, 0, 0.5);
+        outline: none;
+    }
+    .input-modern:focus + i { color: var(--neon-blue); } /* Ilumina o ícone */
+
+    /* Cards e Layout */
     .tools-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 30px;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 25px;
         margin-top: 30px;
     }
-    
     .tool-card {
-        background: rgba(20, 20, 30, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 16px;
-        padding: 25px;
-        height: 100%;
+        padding: 30px;
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.3s;
     }
-    .tool-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
-    .tool-header i { font-size: 1.5rem; color: var(--neon-blue); }
+    .tool-card:hover { transform: translateY(-5px); border-color: rgba(255, 255, 255, 0.2); }
     
-    .result-box {
-        background: rgba(0,0,0,0.3);
-        padding: 15px;
-        border-radius: 8px;
+    /* Headers dos Cards */
+    .card-header { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; }
+    .icon-square {
+        width: 45px; height: 45px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem;
+        background: rgba(255,255,255,0.05);
+    }
+    
+    /* Resultados */
+    .result-panel {
+        background: rgba(0,0,0,0.4);
+        border-left: 4px solid var(--neon-purple);
+        padding: 20px;
+        border-radius: 0 8px 8px 0;
         margin-top: 20px;
-        border-left: 3px solid var(--neon-purple);
-        display: none; /* Escondido por defeito */
+        display: none;
+        animation: slideDown 0.3s ease;
     }
-    
-    .alert-item {
+    @keyframes slideDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+
+    /* Lista de Alertas Estilizada */
+    .alert-row {
         display: flex; justify-content: space-between; align-items: center;
-        background: rgba(255,255,255,0.05); padding: 10px 15px;
-        border-radius: 8px; margin-bottom: 10px;
+        padding: 15px;
+        background: rgba(255,255,255,0.03);
+        border-radius: 8px;
+        margin-bottom: 10px;
+        border: 1px solid transparent;
+        transition: 0.2s;
     }
+    .alert-row:hover { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
 </style>
 
 <div class="section-container fade-in">
     <div class="section-header text-center">
         <h2>Crypto <span class="neon-text">Toolbox</span></h2>
-        <p>Ferramentas profissionais para análise, risco e automação.</p>
+        <p>O canivete suíço do trader profissional.</p>
     </div>
 
     <div class="tools-grid">
         
-        <div class="tool-card glass-panel">
-            <div class="tool-header">
-                <i class="fa-solid fa-hourglass-half"></i>
-                <h3>Time Machine</h3>
+        <div class="tool-card">
+            <div class="card-header">
+                <div class="icon-square text-blue"><i class="fa-solid fa-hourglass-half"></i></div>
+                <div>
+                    <h3 style="margin:0;">Time Machine</h3>
+                    <small class="text-muted">Simulação Histórica</small>
+                </div>
             </div>
-            <p class="text-muted text-sm mb-20">"E se eu tivesse comprado Bitcoin em 2016?"</p>
             
             <form id="timeMachineForm">
-                <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div class="form-group">
-                        <label>Investimento ($)</label>
-                        <input type="number" id="tm_amount" value="1000" class="form-input" style="width:100%">
+                <div class="input-wrapper">
+                    <input type="number" id="tm_amount" value="1000" class="input-modern" placeholder="Investimento ($)">
+                    <i class="fa-solid fa-dollar-sign"></i>
+                </div>
+                <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                    <div class="input-wrapper">
+                        <input type="text" id="tm_symbol" value="BTC" class="input-modern" placeholder="Ticker">
+                        <i class="fa-solid fa-coins"></i>
                     </div>
-                    <div class="form-group">
-                        <label>Moeda</label>
-                        <input type="text" id="tm_symbol" value="BTC" class="form-input" style="width:100%">
+                    <div class="input-wrapper">
+                        <input type="date" id="tm_date" class="input-modern">
                     </div>
                 </div>
-                <div class="form-group mt-10">
-                    <label>Data de Compra</label>
-                    <input type="date" id="tm_date" class="form-input" style="width:100%">
-                </div>
-                <button type="submit" class="btn-glow full-width mt-20">Calcular Lucro</button>
+                <button type="submit" class="btn-glow full-width">Simular Agora</button>
             </form>
 
-            <div id="tm_result" class="result-box">
+            <div id="tm_result" class="result-panel">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span class="text-muted">Valor Atual:</span>
+                    <strong id="tm_current_val" class="text-white text-lg"></strong>
+                </div>
                 <div style="display:flex; justify-content:space-between;">
-                    <span>Valor Hoje:</span>
-                    <strong id="tm_current_val" class="text-green text-lg"></strong>
+                    <span class="text-muted">P&L:</span>
+                    <span id="tm_profit" style="font-weight:bold;"></span>
                 </div>
-                <div style="display:flex; justify-content:space-between; margin-top:5px;">
-                    <span>Lucro Líquido:</span>
-                    <span id="tm_profit"></span>
-                </div>
-                <div class="text-center mt-10 text-sm text-muted">
-                    ROI: <span id="tm_roi" class="text-white"></span> • Multiplicador: <span id="tm_multi" class="text-white"></span>
+                <div class="text-center mt-15 pt-10" style="border-top:1px solid rgba(255,255,255,0.1); font-size:0.85rem;">
+                    ROI: <span id="tm_roi" class="text-blue"></span> • Multiplicador: <span id="tm_multi" class="text-warning"></span>
                 </div>
             </div>
         </div>
 
-        <div class="tool-card glass-panel">
-            <div class="tool-header">
-                <i class="fa-solid fa-calculator"></i>
-                <h3>Risk Calculator</h3>
-            </div>
-            <p class="text-muted text-sm mb-20">Calcula o tamanho ideal da posição para não perderes a conta.</p>
-
-            <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div class="form-group">
-                    <label>Capital Total ($)</label>
-                    <input type="number" id="rc_capital" value="{{ current_user.virtual_balance }}" class="form-input" style="width:100%">
-                </div>
-                <div class="form-group">
-                    <label>Risco (%)</label>
-                    <input type="number" id="rc_risk_pct" value="1" class="form-input" style="width:100%">
-                </div>
-                <div class="form-group">
-                    <label>Entrada ($)</label>
-                    <input type="number" id="rc_entry" placeholder="Ex: 50000" class="form-input" style="width:100%">
-                </div>
-                <div class="form-group">
-                    <label>Stop Loss ($)</label>
-                    <input type="number" id="rc_stop" placeholder="Ex: 48000" class="form-input" style="width:100%">
+        <div class="tool-card">
+            <div class="card-header">
+                <div class="icon-square text-purple"><i class="fa-solid fa-layer-group"></i></div>
+                <div>
+                    <h3 style="margin:0;">Calculadora DCA</h3>
+                    <small class="text-muted">Preço Médio de Compra</small>
                 </div>
             </div>
-            <button onclick="calcRisk()" class="btn-outline full-width mt-20">Calcular Tamanho</button>
 
-            <div id="rc_result" class="result-box">
+            <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                <div>
+                    <label class="text-xs text-muted mb-5 block">Compra 1</label>
+                    <input type="number" id="dca_p1" class="input-modern mb-10" placeholder="Preço 1">
+                    <input type="number" id="dca_q1" class="input-modern" placeholder="Qtd 1">
+                </div>
+                <div>
+                    <label class="text-xs text-muted mb-5 block">Compra 2</label>
+                    <input type="number" id="dca_p2" class="input-modern mb-10" placeholder="Preço 2">
+                    <input type="number" id="dca_q2" class="input-modern" placeholder="Qtd 2">
+                </div>
+            </div>
+            <button onclick="calcDCA()" class="btn-outline full-width mt-15">Calcular Média</button>
+
+            <div id="dca_result" class="result-panel" style="border-left-color: var(--neon-blue);">
                 <div style="text-align:center;">
-                    <p class="text-muted text-sm">Tamanho da Posição (Quantidade)</p>
-                    <h2 id="rc_pos_size" class="text-blue">0.00</h2>
-                    <p id="rc_pos_value" class="text-sm mt-5">Valor: $0.00</p>
-                </div>
-                <div style="border-top:1px solid rgba(255,255,255,0.1); margin-top:10px; padding-top:10px; font-size:0.8rem; display:flex; justify-content:space-between;">
-                    <span>Perda Máx: <span id="rc_loss" class="text-red"></span></span>
-                    <span>Risco/Reward: <span id="rc_rr">Calculado na saída</span></span>
+                    <small class="text-muted">Novo Preço Médio</small>
+                    <h2 id="dca_avg" class="text-white mt-5">$0.00</h2>
+                    <p class="text-xs text-muted mt-5">Custo Total: <span id="dca_total"></span></p>
                 </div>
             </div>
         </div>
 
-        <div class="tool-card glass-panel" style="grid-column: span 1 / -1;">
-            <div class="tool-header">
-                <i class="fa-solid fa-bell"></i>
-                <h3>Alertas de Preço (Email)</h3>
+        <div class="tool-card">
+            <div class="card-header">
+                <div class="icon-square text-red"><i class="fa-solid fa-shield-halved"></i></div>
+                <div>
+                    <h3 style="margin:0;">Risk Manager</h3>
+                    <small class="text-muted">Gestão de Risco</small>
+                </div>
+            </div>
+
+            <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                <div class="input-wrapper">
+                    <input type="number" id="rc_capital" value="{{ current_user.virtual_balance }}" class="input-modern">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <div class="input-wrapper">
+                    <input type="number" id="rc_risk_pct" value="1" class="input-modern" placeholder="Risco %">
+                    <i class="fa-solid fa-percent"></i>
+                </div>
+            </div>
+            <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                <div class="input-wrapper">
+                    <input type="number" id="rc_entry" class="input-modern" placeholder="Entrada">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                </div>
+                <div class="input-wrapper">
+                    <input type="number" id="rc_stop" class="input-modern" placeholder="Stop Loss">
+                    <i class="fa-solid fa-hand-paper"></i>
+                </div>
+            </div>
+            <button onclick="calcRisk()" class="btn-outline full-width">Calcular Posição</button>
+
+            <div id="rc_result" class="result-panel" style="border-left-color: var(--neon-red);">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <small class="text-muted">Tamanho Posição</small>
+                        <div id="rc_pos_size" class="text-lg font-bold text-white">0.00</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <small class="text-muted">Perda Máx</small>
+                        <div id="rc_loss" class="text-red font-bold">$0.00</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tool-card" style="grid-column: 1 / -1;">
+            <div class="card-header" style="justify-content:space-between;">
+                <div style="display:flex; gap:15px; align-items:center;">
+                    <div class="icon-square text-warning"><i class="fa-solid fa-bell"></i></div>
+                    <div>
+                        <h3 style="margin:0;">Sentinela de Preços</h3>
+                        <small class="text-muted">Alertas automáticos por email</small>
+                    </div>
+                </div>
+                <span class="badge" style="background:rgba(255,255,255,0.1); padding:5px 10px; border-radius:20px; font-size:0.8rem;">
+                    {{ alerts|length }} Ativos
+                </span>
             </div>
             
-            <form action="{{ url_for('create_alert') }}" method="POST" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
-                <div style="flex:1; min-width:100px;">
-                    <label class="text-sm">Moeda</label>
-                    <input type="text" name="symbol" placeholder="BTC" required class="form-input" style="width:100%">
+            <form action="{{ url_for('create_alert') }}" method="POST" style="display:flex; gap:15px; background:rgba(0,0,0,0.2); padding:20px; border-radius:12px; flex-wrap:wrap; align-items:flex-end;">
+                <div style="flex:1; min-width:120px;">
+                    <label class="text-xs text-muted mb-5 block">Moeda</label>
+                    <div class="input-wrapper" style="margin:0;">
+                        <input type="text" name="symbol" placeholder="BTC" required class="input-modern">
+                        <i class="fa-brands fa-bitcoin"></i>
+                    </div>
                 </div>
-                <div style="flex:1; min-width:100px;">
-                    <label class="text-sm">Condição</label>
-                    <select name="condition" class="form-input" style="width:100%">
-                        <option value="above">Subir Acima de</option>
-                        <option value="below">Cair Abaixo de</option>
+                <div style="flex:1; min-width:150px;">
+                    <label class="text-xs text-muted mb-5 block">Condição</label>
+                    <select name="condition" class="input-modern" style="padding-left:12px;">
+                        <option value="above">Subir Acima de (▲)</option>
+                        <option value="below">Cair Abaixo de (▼)</option>
                     </select>
                 </div>
-                <div style="flex:1; min-width:100px;">
-                    <label class="text-sm">Preço Alvo ($)</label>
-                    <input type="number" name="target" step="any" required class="form-input" style="width:100%">
+                <div style="flex:1; min-width:120px;">
+                    <label class="text-xs text-muted mb-5 block">Preço Alvo</label>
+                    <div class="input-wrapper" style="margin:0;">
+                        <input type="number" name="target" step="any" required class="input-modern" placeholder="0.00">
+                        <i class="fa-solid fa-dollar-sign"></i>
+                    </div>
                 </div>
-                <button type="submit" class="btn-glow" style="height:42px;"><i class="fa-solid fa-plus"></i> Criar</button>
+                <button type="submit" class="btn-glow" style="height:46px; min-width:100px;">
+                    <i class="fa-solid fa-plus"></i> Criar
+                </button>
             </form>
 
             <div class="mt-30">
-                <h4 class="mb-10 text-muted">Teus Alertas Ativos</h4>
                 {% if alerts %}
-                    {% for alert in alerts %}
-                    <div class="alert-item">
-                        <div>
-                            <strong>{{ alert.symbol }}</strong> 
-                            <span class="text-sm text-muted">
-                                {% if alert.condition == 'above' %} > {% else %} < {% endif %} 
-                                ${{ "{:,.2f}".format(alert.target_price) }}
-                            </span>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:15px;">
+                        {% for alert in alerts %}
+                        <div class="alert-row">
+                            <div style="display:flex; align-items:center; gap:15px;">
+                                <div style="width:35px; height:35px; border-radius:50%; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;">
+                                    {% if alert.condition == 'above' %}
+                                        <i class="fa-solid fa-arrow-trend-up text-green"></i>
+                                    {% else %}
+                                        <i class="fa-solid fa-arrow-trend-down text-red"></i>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <strong style="display:block;">{{ alert.symbol }}</strong>
+                                    <small class="text-muted">
+                                        {% if alert.condition == 'above' %}Alvo > {% else %}Alvo < {% endif %} 
+                                        ${{ "{:,.2f}".format(alert.target_price) }}
+                                    </small>
+                                </div>
+                            </div>
+                            <a href="{{ url_for('delete_alert', id=alert.id) }}" class="text-muted hover:text-red transition" title="Remover">
+                                <i class="fa-solid fa-trash"></i>
+                            </a>
                         </div>
-                        <a href="{{ url_for('delete_alert', id=alert.id) }}" class="text-red hover-scale"><i class="fa-solid fa-trash"></i></a>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 {% else %}
-                    <p class="text-muted text-center text-sm">Sem alertas ativos.</p>
+                    <div class="text-center text-muted mt-20 p-20" style="border:1px dashed rgba(255,255,255,0.1); border-radius:10px;">
+                        <i class="fa-regular fa-bell-slash fa-2x mb-10"></i>
+                        <p>Nenhum alerta ativo. Configura um acima para seres notificado.</p>
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -173,12 +292,12 @@
 </div>
 
 <script>
-    // 1. JS DA MÁQUINA DO TEMPO
+    // 1. Time Machine
     document.getElementById('timeMachineForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = e.target.querySelector('button');
-        const originalText = btn.innerText;
-        btn.innerText = 'Calculando...';
+        const oldText = btn.innerText;
+        btn.innerText = 'Calculando...'; btn.disabled = true;
         
         try {
             const res = await fetch('/api/time_machine', {
@@ -201,15 +320,31 @@
                 document.getElementById('tm_roi').innerText = data.roi;
                 document.getElementById('tm_multi').innerText = data.multiplier;
                 
-                // Colorir resultado
-                if(data.profit.includes('-')) document.getElementById('tm_profit').className = 'text-red';
-                else document.getElementById('tm_profit').className = 'text-green';
+                document.getElementById('tm_profit').className = data.profit.includes('-') ? 'text-red font-bold' : 'text-green font-bold';
             }
         } catch(err) { alert('Erro ao calcular.'); }
-        btn.innerText = originalText;
+        btn.innerText = oldText; btn.disabled = false;
     });
 
-    // 2. JS DA CALCULADORA DE RISCO
+    // 2. Calculadora DCA (Nova)
+    function calcDCA() {
+        const p1 = parseFloat(document.getElementById('dca_p1').value);
+        const q1 = parseFloat(document.getElementById('dca_q1').value);
+        const p2 = parseFloat(document.getElementById('dca_p2').value);
+        const q2 = parseFloat(document.getElementById('dca_q2').value);
+
+        if(!p1 || !q1 || !p2 || !q2) return;
+
+        const totalCost = (p1 * q1) + (p2 * q2);
+        const totalQty = q1 + q2;
+        const avgPrice = totalCost / totalQty;
+
+        document.getElementById('dca_result').style.display = 'block';
+        document.getElementById('dca_avg').innerText = "$" + avgPrice.toFixed(2);
+        document.getElementById('dca_total').innerText = "$" + totalCost.toLocaleString();
+    }
+
+    // 3. Calculadora Risco
     function calcRisk() {
         const capital = parseFloat(document.getElementById('rc_capital').value);
         const riskPct = parseFloat(document.getElementById('rc_risk_pct').value);
@@ -221,11 +356,9 @@
         const riskAmount = capital * (riskPct / 100);
         const riskPerShare = Math.abs(entry - stop);
         const shares = riskAmount / riskPerShare;
-        const totalValue = shares * entry;
 
         document.getElementById('rc_result').style.display = 'block';
-        document.getElementById('rc_pos_size').innerText = shares.toFixed(4) + " Coins";
-        document.getElementById('rc_pos_value').innerText = "Investimento Total: $" + totalValue.toLocaleString();
+        document.getElementById('rc_pos_size').innerText = shares.toFixed(4);
         document.getElementById('rc_loss').innerText = "-$" + riskAmount.toFixed(2);
     }
 </script>
