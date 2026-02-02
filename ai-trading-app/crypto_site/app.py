@@ -682,19 +682,89 @@ def update_password():
         flash('Password alterada!', 'success')
     return redirect(url_for('profile_page'))
 
-@app.route('/toggle_watchlist/<ticker>')
+# --- ROTA: TOGGLE WATCHLIST (Adicionar/Remover) ---
+@app.route('/api/toggle_watchlist/<symbol>', methods=['POST'])
 @login_required
-def toggle_watchlist(ticker):
-    ticker = ticker.upper()
-    exists = Watchlist.query.filter_by(user_id=current_user.id, symbol=ticker).first()
-    if exists:
-        db.session.delete(exists)
-        msg, action = "removido", "removed"
+def toggle_watchlist(symbol):
+    symbol = symbol.upper()
+    # Verifica se já existe
+    existing = Watchlist.query.filter_by(user_id=current_user.id, symbol=symbol).first()
+    
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return jsonify({'status': 'removed', 'message': f'{symbol} removido da Watchlist'})
     else:
-        db.session.add(Watchlist(user_id=current_user.id, symbol=ticker))
-        msg, action = "adicionado", "added"
-    db.session.commit()
-    return {"status": "success", "message": msg, "action": action}
+        # Verifica limite do plano (Opcional - Lógica de Pricing)
+        count = Watchlist.query.filter_by(user_id=current_user.id).count()
+        limit = 3 if current_user.plan_type == 'Starter' else (10 if current_user.plan_type == 'Pro' else 999)
+        
+        if count >= limit:
+            return jsonify({'status': 'error', 'message': f'Limite do plano atingido ({limit} moedas).'})
+            
+        new_item = Watchlist(user_id=current_user.id, symbol=symbol)
+        db.session.add(new_item)
+        db.session.commit()
+        return jsonify({'status': 'added', 'message': f'{symbol} adicionado à Watchlist'})
+
+# --- ROTA: PÁGINA DE WATCHLIST ---
+@app.route('/watchlist')
+@login_required
+def watchlist_page():
+    # 1. Buscar favoritos na BD
+    favorites = Watchlist.query.filter_by(user_id=current_user.id).all()
+    
+    watchlist_data = []
+    
+    if favorites:
+        # Criar lista de tickers para o Yahoo Finance (Ex: ['BTC-USD', 'ETH-USD'])
+        symbols_list = [f"{f.symbol.upper()}-USD" for f in favorites]
+        
+        try:
+            # 2. Baixar dados (Tentativa otimizada)
+            if len(symbols_list) > 0:
+                # Baixa apenas o último dia
+                data = yf.download(symbols_list, period="1d", progress=False)
+                
+                for f in favorites:
+                    sym = f.symbol.upper()
+                    yf_sym = f"{sym}-USD"
+                    
+                    try:
+                        # Lógica para extrair preço (funciona para 1 ou várias moedas)
+                        if len(symbols_list) == 1:
+                            # Se for só 1 moeda, o DataFrame é simples
+                            price = data['Close'].iloc[-1]
+                            open_price = data['Open'].iloc[-1]
+                        else:
+                            # Se forem várias, o DataFrame tem MultiIndex
+                            price = data['Close'][yf_sym].iloc[-1]
+                            open_price = data['Open'][yf_sym].iloc[-1]
+                        
+                        # Converter para float para evitar erros de numpy
+                        price = float(price)
+                        open_price = float(open_price)
+                        
+                        change = ((price - open_price) / open_price) * 100
+                        
+                        watchlist_data.append({
+                            'symbol': sym,
+                            'price': smart_format(price),
+                            'change': f"{change:+.2f}%",
+                            'color': 'text-green' if change >= 0 else 'text-red',
+                            'icon': 'fa-brands fa-bitcoin' if sym == 'BTC' else 'fa-solid fa-coins' # Ícone genérico se não tiveres a função
+                        })
+                    except Exception as e:
+                        print(f"Erro ao processar {sym}: {e}")
+                        # Adiciona item com erro para o user poder apagar
+                        watchlist_data.append({
+                            'symbol': sym, 'price': 'Erro', 'change': '---', 'color': 'text-muted', 'icon': 'fa-solid fa-circle-exclamation'
+                        })
+
+        except Exception as e:
+            print(f"Erro Geral Watchlist: {e}")
+
+    return render_template('watchlist.html', coins=watchlist_data, active_page='watchlist')
 
 @app.route('/api/news')
 @cache.cached(timeout=300) 
@@ -902,11 +972,22 @@ def check_alerts_routine():
 @login_required
 def crypto_snapshot_page():
     ticker = request.args.get('ticker', '').upper()
+    
+    # --- 1. VERIFICAÇÃO DE FAVORITOS (ADICIONADO) ---
+    is_favorited = False
+    try:
+        # Verifica se existe na tabela Watchlist para este user e este ticker
+        check = Watchlist.query.filter_by(user_id=current_user.id, symbol=ticker).first()
+        if check:
+            is_favorited = True
+    except Exception as e:
+        print(f"Erro DB Watchlist: {e}")
+    # -----------------------------------------------
+
     try:
         stock = yf.Ticker(f"{ticker}-USD")
         
-        # Usar fast_info é rápido, mas às vezes não tem volume histórico
-        # Vamos buscar o histórico de 1 mês para garantir dados
+        # Buscar histórico
         hist = stock.history(period="1mo")
         
         if hist.empty: return redirect(url_for('crypto_page'))
@@ -915,11 +996,10 @@ def crypto_snapshot_page():
         prev_close = hist['Close'].iloc[-2]
         change = ((current_price - prev_close)/prev_close)*100
         
-        # CORREÇÃO: Calcular Volume
         volume = hist['Volume'].iloc[-1]
-        if volume == 0: volume = hist['Volume'].iloc[-2] # Fallback se o dia acabou de começar
+        if volume == 0: volume = hist['Volume'].iloc[-2] 
         
-        # Lógica simples de sinal
+        # Lógica de sinal
         ma_30 = hist['Close'].mean()
         signal = "Neutro"
         color = "yellow"
@@ -935,12 +1015,14 @@ def crypto_snapshot_page():
                                price=smart_format(current_price), 
                                change=f"{change:+.2f}%", 
                                change_raw=change, 
-                               volume=f"{volume:,.0f}", # <--- Enviamos o volume formatado
+                               volume=f"{volume:,.0f}", 
                                active_page='crypto',
                                signal=signal, 
                                signal_color=color, 
                                signal_icon="fa-chart-line", 
-                               signal_desc="Baseado na média móvel de 30 dias.")
+                               signal_desc="Baseado na média móvel de 30 dias.",
+                               is_favorited=is_favorited) # <--- AGORA O HTML JÁ RECEBE A INFO
+                               
     except Exception as e: 
         print(f"Erro snapshot: {e}")
         return redirect(url_for('crypto_page'))

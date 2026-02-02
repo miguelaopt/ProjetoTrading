@@ -3,8 +3,7 @@
 {% block content %}
 
 <div class="hero-container fade-in">
-    <span class="beta-badge">VERSION 2.0 ALPHA</span>
-    <span class="beta-badge">DEVELOPMENT</span>
+    <span class="beta-badge">VERSION 2.0 LIVE</span>
     <h1>Domina o Mercado com <span class="neon-text">FlowTrade</span></h1>
     <p>A tua ponte entre o caos do mercado e a clareza dos dados.</p>
     
@@ -17,7 +16,7 @@
                 <button class="btn-outline">Ir para Simulador</button>
             </a>
         {% else %}
-            <a href="{{ url_for('login_page') }}">
+            <a href="{{ url_for('register_page') }}">
                 <button class="btn-glow">Começar Agora</button>
             </a>
             <a href="{{ url_for('screener_page') }}">
@@ -47,20 +46,20 @@
 </div>
 
 <div class="features-grid-container mt-60">
-    <a href="{{ url_for('ai_page') }}" class="feature-card glass-panel">
-        <div class="icon-box"><i class="fa-solid fa-brain"></i></div>
-        <h3>AI Analysis</h3>
-        <p>Modelos preditivos avançados.</p>
+    <a href="{{ url_for('ai_vision_page') }}" class="feature-card glass-panel">
+        <div class="icon-box" style="color:var(--neon-blue);"><i class="fa-solid fa-eye"></i></div>
+        <h3>AI Vision</h3>
+        <p>Carrega prints dos teus gráficos e recebe análise técnica instantânea.</p>
     </a>
-    <a href="{{ url_for('screener_page') }}" class="feature-card glass-panel">
-        <div class="icon-box"><i class="fa-solid fa-bolt"></i></div>
-        <h3>Live Signals</h3>
-        <p>Sinais de compra/venda instantâneos.</p>
+    <a href="{{ url_for('crypto_tools_page') }}" class="feature-card glass-panel">
+        <div class="icon-box" style="color:var(--neon-purple);"><i class="fa-solid fa-toolbox"></i></div>
+        <h3>Toolbox Pro</h3>
+        <p>Calculadoras de Risco, DCA e Máquina do Tempo histórica.</p>
     </a>
-    <a href="{{ url_for('risk_page') }}" class="feature-card glass-panel">
-        <div class="icon-box"><i class="fa-solid fa-shield-halved"></i></div>
-        <h3>Risk Guard</h3>
-        <p>Proteção de capital automática.</p>
+    <a href="{{ url_for('leaderboard_page') }}" class="feature-card glass-panel">
+        <div class="icon-box" style="color:#f1c40f;"><i class="fa-solid fa-trophy"></i></div>
+        <h3>Ranking Global</h3>
+        <p>Compete com outros traders e ganha reputação na comunidade.</p>
     </a>
 </div>
 
@@ -165,9 +164,10 @@
             <h3>Starter</h3>
             <div class="price">€0<span>/mês</span></div>
             <ul class="features-list">
-                <li><i class="fa-solid fa-check"></i> Cotações com atraso (15m)</li>
-                <li><i class="fa-solid fa-check"></i> Acesso básico à AI</li>
-                <li><i class="fa-solid fa-check"></i> 1 Watchlist</li>
+                <li><i class="fa-solid fa-check" style="color:var(--success);"></i> Acesso ao Simulador ($10k)</li>
+                <li><i class="fa-solid fa-check" style="color:var(--success);"></i> Cotações (15min delay)</li>
+                <li><i class="fa-solid fa-check" style="color:var(--success);"></i> 1 Alerta de Preço</li>
+                <li style="color:#555;"><i class="fa-solid fa-xmark"></i> AI Vision & Uploads</li>
             </ul>
             <a href="{{ url_for('pricing_page') if current_user.is_authenticated else url_for('register_page') }}">
                 <button class="btn-outline full-width">Criar Conta Grátis</button>
@@ -177,28 +177,29 @@
         <div class="pricing-card glass-panel featured">
             <div class="badge-popular">MAIS POPULAR</div>
             <h3>Pro Trader</h3>
-            <div class="price">€29<span>/mês</span></div>
+            <div class="price">€5<span>/mês</span></div>
             <ul class="features-list">
-                <li><i class="fa-solid fa-check"></i> <strong>Dados em Tempo Real</strong></li>
-                <li><i class="fa-solid fa-check"></i> Sinais AI Ilimitados</li>
-                <li><i class="fa-solid fa-check"></i> Scanner Avançado</li>
-                <li><i class="fa-solid fa-check"></i> Gestão de Risco Auto</li>
+                <li><i class="fa-solid fa-check" style="color:var(--neon-blue);"></i> <strong>Dados em Tempo Real</strong></li>
+                <li><i class="fa-solid fa-check" style="color:var(--neon-blue);"></i> 5 Análises AI Vision / dia</li>
+                <li><i class="fa-solid fa-check" style="color:var(--neon-blue);"></i> 5 Alertas de Preço</li>
+                <li><i class="fa-solid fa-check" style="color:var(--neon-blue);"></i> Badge "Pro Member" Azul</li>
             </ul>
             <a href="{{ url_for('pricing_page') }}">
-                <button class="btn-glow full-width">Começar Trial</button>
+                <button class="btn-glow full-width">Subscrever Pro</button>
             </a>
         </div>
 
         <div class="pricing-card glass-panel">
-            <h3>Elite</h3>
-            <div class="price">€99<span>/mês</span></div>
+            <h3>Ultra Elite</h3>
+            <div class="price">€10<span>/mês</span></div>
             <ul class="features-list">
-                <li><i class="fa-solid fa-check"></i> Tudo do Pro</li>
-                <li><i class="fa-solid fa-check"></i> Acesso API</li>
-                <li><i class="fa-solid fa-check"></i> Mentor Dedicado</li>
+                <li><i class="fa-solid fa-check" style="color:#f1c40f;"></i> <strong>Tudo do Plano Pro +</strong></li>
+                <li><i class="fa-solid fa-check" style="color:#f1c40f;"></i> AI Vision Ilimitado</li>
+                <li><i class="fa-solid fa-check" style="color:#f1c40f;"></i> Alertas Infinitos</li>
+                <li><i class="fa-solid fa-check" style="color:#f1c40f;"></i> Badge "VIP" Dourado</li>
             </ul>
             <a href="{{ url_for('pricing_page') }}">
-                <button class="btn-outline full-width">Contactar Vendas</button>
+                <button class="btn-outline full-width" style="border-color:#f1c40f; color:#f1c40f;">Ser Ultra</button>
             </a>
         </div>
     </div>
@@ -217,15 +218,9 @@
             </div>
         </div>
         <div class="faq-item">
-            <button class="faq-question" onclick="toggleFaq(this)">Preciso de saber programar? <i class="fa-solid fa-plus"></i></button>
+            <button class="faq-question" onclick="toggleFaq(this)">Posso cancelar a qualquer momento? <i class="fa-solid fa-plus"></i></button>
             <div class="faq-answer">
-                <p>Zero. O FlowTrade é feito para ser visual e intuitivo. Se sabes clicar num botão, sabes usar a nossa AI.</p>
-            </div>
-        </div>
-        <div class="faq-item">
-            <button class="faq-question" onclick="toggleFaq(this)">É grátis? <i class="fa-solid fa-plus"></i></button>
-            <div class="faq-answer">
-                <p>Sim! Estamos em fase Beta gratuita. Quem se registar agora terá benefícios exclusivos quando lançarmos os planos Pro.</p>
+                <p>Sim. Se cancelares, manténs o acesso até ao fim do ciclo mensal e depois a conta volta automaticamente para o plano Starter (Grátis).</p>
             </div>
         </div>
         <div class="faq-item">

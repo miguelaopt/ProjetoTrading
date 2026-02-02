@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Estilo melhorado para o botão de lixo */
+    .btn-trash {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #888;
+        width: 35px;
+        height: 35px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-trash:hover {
+        background: rgba(231, 76, 60, 0.2); /* Fundo vermelho suave */
+        border-color: #e74c3c;
+        color: #e74c3c;
+        transform: scale(1.1); /* Aumenta ligeiramente */
+    }
+
+    /* Animação para remover a linha */
+    .fade-out {
+        opacity: 0;
+        transform: translateX(20px);
+        transition: all 0.4s ease;
+    }
+</style>
+
+<div class="section-container fade-in">
+    <div class="section-header text-center">
+        <h2>Minha <span class="neon-text">Watchlist</span></h2>
+        <p>Acompanha os teus ativos favoritos em tempo real.</p>
+    </div>
+
+    <div class="glass-panel" style="max-width: 800px; margin: 0 auto;">
+        {% if coins %}
+            <ul class="market-list">
+                {% for coin in coins %}
+                <li id="row-{{ coin.symbol }}" style="display:flex; justify-content:space-between; align-items:center; padding:15px; border-bottom:1px solid rgba(255,255,255,0.05); transition: all 0.3s;">
+                    
+                    <a href="{{ url_for('crypto_snapshot_page', ticker=coin.symbol) }}" style="display:flex; align-items:center; gap:15px; text-decoration:none; color:white; flex-grow:1;">
+                        <i class="{{ coin.icon }} fa-2x"></i>
+                        <div>
+                            <strong style="font-size:1.1rem; display:block;">{{ coin.symbol }}</strong>
+                            <span style="font-size:0.8rem; color:#888;">USD</span>
+                        </div>
+                    </a>
+                    
+                    <div style="text-align:right; margin-right:20px;">
+                        <div style="font-family:monospace; font-size:1.1rem;">{{ coin.price }}</div>
+                        <div class="{{ coin.color }}" style="font-size:0.9rem;">{{ coin.change }}</div>
+                    </div>
+
+                    <button onclick="removeFromWatchlist('{{ coin.symbol }}')" class="btn-trash" title="Remover dos favoritos">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="text-center p-40">
+                <i class="fa-regular fa-star fa-3x text-muted mb-20" style="opacity:0.3;"></i>
+                <p class="text-muted">A tua lista está vazia.</p>
+                <a href="{{ url_for('screener_page') }}" class="btn-outline mt-20">Explorar Mercado</a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function removeFromWatchlist(symbol) {
+    if(!confirm(`Remover ${symbol} da tua Watchlist?`)) return;
+    
+    const row = document.getElementById(`row-${symbol}`);
+    
+    fetch(`/api/toggle_watchlist/${symbol}`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if(data.status === 'removed') {
+                // Adiciona a classe de animação
+                row.classList.add('fade-out');
+                
+                // Remove do DOM após a animação terminar
+                setTimeout(() => {
+                    row.remove();
+                    // Se a lista ficar vazia, recarrega para mostrar a mensagem "Vazia"
+                    if(document.querySelectorAll('.market-list li').length === 0) {
+                        location.reload();
+                    }
+                }, 400);
+            } else {
+                alert('Erro ao remover: ' + (data.message || 'Desconhecido'));
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Erro de conexão.');
+        });
+}
+</script>
+{% endblock %}

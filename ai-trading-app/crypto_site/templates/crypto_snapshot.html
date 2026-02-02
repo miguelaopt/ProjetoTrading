@@ -15,34 +15,49 @@
     .red-glow { background: var(--neon-red); }
     .yellow-glow { background: #f1c40f; }
 
+    /* Botão de Watchlist interativo */
+    .btn-watchlist {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 50%;
+        width: 45px; height: 45px;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer;
+        transition: 0.3s;
+        font-size: 1.2rem;
+        color: var(--text-muted);
+    }
+    .btn-watchlist:hover { background: rgba(255,255,255,0.1); transform: scale(1.1); }
+    .btn-watchlist.active { color: #f1c40f; border-color: #f1c40f; }
+
     @media (max-width: 900px) { .snapshot-grid { grid-template-columns: 1fr; } }
 </style>
 
 <div class="section-container fade-in" style="max-width: 1200px; margin-top: 100px;">
     
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-    <div style="display: flex; align-items: center; gap: 15px;">
-        <a href="{{ url_for('crypto_page') }}" class="btn-outline" style="padding: 10px 15px; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-arrow-left"></i> Voltar
-        </a>
-        
-        <h1 style="margin:0; display:flex; align-items:center; gap:15px; line-height: 1;">
-    {{ ticker }} 
-    <span style="font-size:1.2rem; color:var(--text-muted); font-weight: 400;">USD</span>
-    
-    <button onclick="toggleWatchlist('{{ ticker }}', this)" class="btn-icon" style="background:none; border:none; cursor:pointer; font-size:1.5rem; transition:0.2s;">
-        <i class="fa-regular fa-star" style="color:var(--text-muted);"></i>
-    </button>
-    </h1>
-    </div>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <a href="{{ url_for('crypto_page') }}" class="btn-outline" style="padding: 10px 15px; font-size: 0.9rem; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-arrow-left"></i> Voltar
+            </a>
+            
+            <div style="display:flex; align-items:center; gap:15px;">
+                <h1 style="margin:0; line-height: 1;">{{ ticker }}</h1>
+                <span style="font-size:1.2rem; color:var(--text-muted); font-weight: 400;">USD</span>
+                
+                <button onclick="toggleWatchlist('{{ ticker }}', this)" class="btn-watchlist {{ 'active' if is_favorited else '' }}" title="Adicionar/Remover Favorito">
+                    <i class="fa-{{ 'solid' if is_favorited else 'regular' }} fa-star"></i>
+                </button>
+            </div>
+        </div>
 
-    <div class="text-right">
-        <div style="font-size: 2rem; font-weight: 800; line-height: 1;">{{ price }}</div>
-        <div class="{{ 'text-green' if change_raw >= 0 else 'text-red' }}" style="font-size: 1rem; font-weight:bold; margin-top: 5px;">
-            {{ change }}
+        <div class="text-right">
+            <div style="font-size: 2rem; font-weight: 800; line-height: 1;">{{ price }}</div>
+            <div class="{{ 'text-green' if change_raw >= 0 else 'text-red' }}" style="font-size: 1rem; font-weight:bold; margin-top: 5px;">
+                {{ change }}
+            </div>
         </div>
     </div>
-</div>
 
     <div class="snapshot-grid">
         
@@ -68,22 +83,22 @@
             </div>
 
             <div class="glass-panel" style="text-align:center;">
-    <p class="mb-20">Queres um plano detalhado com Entry, Stop Loss e Take Profit?</p>
-    
-    <a href="{{ url_for('crypto_analyze_page') }}?ticker={{ ticker }}&auto=true" class="btn-glow full-width" style="justify-content:center; padding: 15px;">
-        <i class="fa-solid fa-brain" style="margin-right:10px;"></i> Correr AI Analyzer
-    </a>
-    
-    <div style="display:flex; gap:10px; margin-top:15px;">
-        <a href="https://finance.yahoo.com/quote/{{ ticker }}-USD" target="_blank" class="btn-outline full-width" style="justify-content:center; font-size:0.8rem;">
-            <i class="fa-solid fa-chart-simple"></i> Ver no Yahoo
-        </a>
-        
-        <a href="{{ url_for('paper_trading') }}" class="btn-outline full-width" style="justify-content:center; font-size:0.8rem;">
-            <i class="fa-solid fa-gamepad"></i> Trade
-        </a>
-    </div>
-</div>
+                <p class="mb-20">Queres um plano detalhado com Entry, Stop Loss e Take Profit?</p>
+                
+                <a href="{{ url_for('crypto_analyze_page') }}?ticker={{ ticker }}&auto=true" class="btn-glow full-width" style="justify-content:center; padding: 15px;">
+                    <i class="fa-solid fa-brain" style="margin-right:10px;"></i> Correr AI Analyzer
+                </a>
+                
+                <div style="display:flex; gap:10px; margin-top:15px;">
+                    <a href="https://finance.yahoo.com/quote/{{ ticker }}-USD" target="_blank" class="btn-outline full-width" style="justify-content:center; font-size:0.8rem;">
+                        <i class="fa-solid fa-chart-simple"></i> Yahoo
+                    </a>
+                    
+                    <a href="{{ url_for('paper_trading') }}" class="btn-outline full-width" style="justify-content:center; font-size:0.8rem;">
+                        <i class="fa-solid fa-gamepad"></i> Trade
+                    </a>
+                </div>
+            </div>
 
             <div class="glass-panel" style="display:flex; justify-content:space-between; align-items:center;">
                 <span class="text-muted"><i class="fa-solid fa-chart-simple"></i> Volume (24h)</span>
@@ -96,18 +111,56 @@
 
 <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 <script>
+    // LÓGICA DA WATCHLIST (AJAX)
+    function toggleWatchlist(symbol, btn) {
+        // Efeito visual imediato para parecer rápido
+        const icon = btn.querySelector('i');
+        const wasActive = btn.classList.contains('active');
+        
+        // Alternar visualmente
+        if (wasActive) {
+            btn.classList.remove('active');
+            icon.classList.remove('fa-solid');
+            icon.classList.add('fa-regular');
+        } else {
+            btn.classList.add('active');
+            icon.classList.remove('fa-regular');
+            icon.classList.add('fa-solid');
+        }
+
+        // Chamar Servidor
+        fetch(`/api/toggle_watchlist/${symbol}`, { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'error') {
+                    // Reverter se der erro (ex: limite atingido)
+                    alert(data.message);
+                    if (!wasActive) { // Se estava a tentar adicionar e falhou
+                        btn.classList.remove('active');
+                        icon.classList.remove('fa-solid');
+                        icon.classList.add('fa-regular');
+                    }
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert("Erro de conexão.");
+            });
+    }
+
+    // CHART TRADINGVIEW
     document.addEventListener('DOMContentLoaded', () => {
         new TradingView.widget({
             "autosize": true,
-            "symbol": "BINANCE:{{ ticker }}USD", // Tenta Binance, se falhar pode precisar de ajuste
-            "interval": "60", // Gráfico de 1 hora para visão rápida
+            "symbol": "BINANCE:{{ ticker }}USD", 
+            "interval": "60", 
             "timezone": "Etc/UTC",
             "theme": "dark",
             "style": "1",
             "locale": "en",
             "toolbar_bg": "#f1f3f6",
             "enable_publishing": false,
-            "hide_top_toolbar": true, // Esconde ferramentas para ser mais limpo
+            "hide_top_toolbar": true, 
             "hide_legend": true,
             "save_image": false,
             "container_id": "tv_chart_snapshot",
