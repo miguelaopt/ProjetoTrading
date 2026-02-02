@@ -16,6 +16,7 @@ import time
 import io
 from PIL import Image
 from models import PriceAlert
+from datetime import datetime, date
 
 # --- IMPORTAÇÕES LOCAIS (A nova organização) ---
 from extensions import db, login_manager, mail, cache
@@ -246,10 +247,34 @@ def reset_password(token):
 @app.route('/ai/vision', methods=['GET', 'POST'])
 @login_required
 def ai_vision_page():
-    if request.method == 'GET':
-        return render_template('ai_vision.html', active_page='ai')
+    # --- LÓGICA DE LIMITES ---
+    LIMITS = {'Starter': 0, 'Pro': 5, 'Ultra': 9999}
+    # Se o plano não for reconhecido, assume 0
+    user_limit = LIMITS.get(current_user.plan_type, 0)
     
-    # Lógica do POST (Upload da imagem)
+    # Verificar e Resetar contador diário
+    if current_user.last_ai_usage != date.today():
+        current_user.ai_usage_count = 0
+        current_user.last_ai_usage = date.today()
+        db.session.commit()
+
+    # Calcular restantes
+    remaining = user_limit - current_user.ai_usage_count
+
+    # --- MÉTODO GET (Mostrar Página) ---
+    if request.method == 'GET':
+        # AQUI ESTAVA O ERRO: Faltava enviar user_limit e remaining
+        return render_template('ai_vision.html', 
+                               active_page='ai', 
+                               user_limit=user_limit, 
+                               remaining=remaining)
+    
+    # --- MÉTODO POST (Upload Imagem) ---
+    
+    # 1. Verificar Limites antes de processar
+    if current_user.ai_usage_count >= user_limit:
+        return jsonify({'error': 'Limite diário atingido. Faz upgrade para Ultra!'})
+
     if 'chart_image' not in request.files:
         return jsonify({'error': 'Nenhuma imagem enviada.'})
     
@@ -261,31 +286,32 @@ def ai_vision_page():
         return jsonify({'error': 'Ficheiro inválido.'})
 
     try:
-        # 1. Processar a imagem na memória
+        # 2. Processar a imagem
         image_bytes = file.read()
         image = Image.open(io.BytesIO(image_bytes))
         
-        # 2. Preparar o Prompt para o Expert em Trading
+        # 3. Prompt para o Gemini
         prompt = f"""
-        Atua como um Analista Técnico Profissional de Criptomoedas com 20 anos de experiência.
-        
+        Atua como um Analista Técnico Profissional de Criptomoedas.
         Analisa a imagem deste gráfico de {coin_name} (Timeframe: {timeframe}).
         
         Fornece um relatório estruturado em HTML simples (sem markdown, usa <b>, <br>, <ul>) com:
-        1. 📈 **Tendência Atual:** (Alta, Baixa ou Lateralização).
-        2. 🧱 **Níveis Chave:** Identifica Suportes e Resistências visíveis.
-        3. 📐 **Padrões Gráficos:** Procura por Bandeiras, Triângulos, Head & Shoulders, ou Fibonacci se aplicável.
-        4. 🕯️ **Análise de Velas:** Alguma vela de reversão (Doji, Martelo, Engolfo)?
-        5. 🚀 **Veredito Final:** (Compra, Venda ou Aguardar) com uma breve justificação.
-        
-        Sê direto, objetivo e educativo. Se a imagem não for um gráfico, diz apenas 'Por favor envia um gráfico válido'.
+        1. 📈 **Tendência Atual**
+        2. 🧱 **Suportes e Resistências**
+        3. 📐 **Padrões Gráficos**
+        4. 🚀 **Veredito Final:** (Compra/Venda/Neutro)
+        Sê direto e educativo.
         """
 
-        # 3. Enviar para o Gemini (Multimodal)
+        # 4. Enviar para a AI
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.0-flash",
             contents=[prompt, image]
         )
+        
+        # 5. SUCESSO: Incrementar contador
+        current_user.ai_usage_count += 1
+        db.session.commit()
         
         return jsonify({'status': 'success', 'analysis': response.text})
 
@@ -687,7 +713,6 @@ def update_password():
 @login_required
 def toggle_watchlist(symbol):
     symbol = symbol.upper()
-    # Verifica se já existe
     existing = Watchlist.query.filter_by(user_id=current_user.id, symbol=symbol).first()
     
     if existing:
@@ -696,16 +721,20 @@ def toggle_watchlist(symbol):
         return jsonify({'status': 'removed', 'message': f'{symbol} removido da Watchlist'})
     else:
         # Verifica limite do plano (Opcional - Lógica de Pricing)
+        # LIMITES WATCHLIST
+        LIMITS = {'Starter': 3, 'Pro': 10, 'Ultra': 999}
+        limit = LIMITS.get(current_user.plan_type, 3)
+
         count = Watchlist.query.filter_by(user_id=current_user.id).count()
-        limit = 3 if current_user.plan_type == 'Starter' else (10 if current_user.plan_type == 'Pro' else 999)
         
         if count >= limit:
-            return jsonify({'status': 'error', 'message': f'Limite do plano atingido ({limit} moedas).'})
+            if count >= limit:
+                return jsonify({'status': 'error', 'message': f'Limite de {limit} moedas atingido. Faz Upgrade!'})
             
         new_item = Watchlist(user_id=current_user.id, symbol=symbol)
         db.session.add(new_item)
         db.session.commit()
-        return jsonify({'status': 'added', 'message': f'{symbol} adicionado à Watchlist'})
+        return jsonify({'status': 'added', 'message': 'Adicionado aos favoritos'})
 
 # --- ROTA: PÁGINA DE WATCHLIST ---
 @app.route('/watchlist')
@@ -894,6 +923,15 @@ def time_machine_calc():
 @app.route('/api/create_alert', methods=['POST'])
 @login_required
 def create_alert():
+    # LIMITES ALERTAS
+    LIMITS = {'Starter': 1, 'Pro': 5, 'Ultra': 999}
+    limit = LIMITS.get(current_user.plan_type, 1)
+    count = PriceAlert.query.filter_by(user_id=current_user.id, is_active=True).count()
+
+    if count >= limit:
+        flash(f"Limite de {limit} alertas atingido. Faz upgrade para criar mais.", "error")
+        return redirect(url_for('crypto_tools_page'))
+    
     symbol = request.form.get('symbol').upper()
     target = float(request.form.get('target'))
     condition = request.form.get('condition') # 'above' ou 'below'

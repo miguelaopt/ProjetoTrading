@@ -23,17 +23,75 @@ def smart_format(value):
 
 def get_user_badges(user):
     badges = []
+    
+    # --- 1. BADGES DE PLANO (Identidade do Trader) ---
+    # Starter (Cinzento / Semente)
+    if user.plan_type == 'Starter':
+        badges.append({
+            'icon': 'fa-leaf', 
+            'color': '#bdc3c7',  # Cinzento
+            'title': 'Starter', 
+            'desc': 'Plano Gratuito'
+        })
+
+        # --- 1. BADGES DE PLANO (Identidade do Trader) ---
+    # Starter (Cinzento / Semente)
+    if user.plan_type == 'Starter':
+        badges.append({
+            'icon': 'fa-leaf', 
+            'color': '#bdc3c7',  # Cinzento
+            'title': 'Starter', 
+            'desc': 'Plano Gratuito'
+        })
+
+        # Ultra (Dourado / Diamante - Luxo)
+    elif user.plan_type == 'Ultra':
+        badges.append({
+            'icon': 'fa-gem', 
+            'color': '#f1c40f',  # Ouro
+            'title': 'Ultra VIP', 
+            'desc': 'Acesso Ilimitado'
+        })
+
+    # --- 2. BADGE DE AUTORIDADE (Admin) ---
+    # Verifica se é ADMIN (ignora se for REGULAR)
+    if hasattr(user, 'special_role') and user.special_role == 'ADMIN':
+        badges.append({
+            'icon': 'fa-shield-halved', 
+            'color': '#e74c3c',  # Vermelho
+            'title': 'Admin', 
+            'desc': 'Staff FlowTrade'
+        })
+
+    # --- 3. BADGES DE CONQUISTAS (Gamification) ---
+    # Primeiro Trade
     if user.transactions and len(user.transactions) > 0:
-        badges.append({'icon': 'fa-rocket', 'color': '#3498db', 'title': 'Iniciado', 'desc': 'Fez o primeiro trade'})
+        badges.append({
+            'icon': 'fa-rocket', 
+            'color': '#3498db', 
+            'title': 'Iniciado', 
+            'desc': 'Fez o primeiro trade'
+        })
+
+    # Veterano (+10 Trades)
     if user.transactions and len(user.transactions) >= 10:
-        badges.append({'icon': 'fa-medal', 'color': '#9b59b6', 'title': 'Veterano', 'desc': 'Mais de 10 operações'})
+        badges.append({
+            'icon': 'fa-medal', 
+            'color': '#9b59b6', 
+            'title': 'Veterano', 
+            'desc': 'Mais de 10 operações'
+        })
+    
+    # Baleia (Lucro alto / Saldo > 15k)
+    # Nota: Mantivemos a coroa aqui porque faz sentido para "Rei do lucro"
     if user.virtual_balance >= 15000:
-         badges.append({'icon': 'fa-crown', 'color': '#f1c40f', 'title': 'Baleia', 'desc': 'Lucro superior a 50%'})
-    if hasattr(user, 'special_role'):
-        if user.special_role == 'ADMIN':
-            badges.append({'icon': 'fa-shield-halved', 'color': '#e74c3c', 'title': 'Admin', 'desc': 'Staff'})
-        elif user.special_role == 'VIP':
-            badges.append({'icon': 'fa-star', 'color': '#d35400', 'title': 'VIP', 'desc': 'Membro VIP'})
+        badges.append({
+            'icon': 'fa-crown', 
+            'color': '#f39c12', # Laranja/Dourado escuro
+            'title': 'Baleia', 
+            'desc': 'Lucro superior a 50%'
+        })
+
     return badges
 
 def get_stock_price(symbol):

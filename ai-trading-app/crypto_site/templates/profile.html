@@ -6,120 +6,199 @@
     
     /* Avatar e Lado Esquerdo */
     .profile-avatar-container { position: relative; width: 120px; height: 120px; margin: 0 auto 20px; }
-    .profile-avatar { width: 100%; height: 100%; border-radius: 50%; background: var(--neon-purple); display: flex; align-items: center; justify-content: center; font-size: 3rem; color: white; border: 3px solid rgba(255,255,255,0.2); box-shadow: 0 0 20px rgba(188, 19, 254, 0.4); }
-    .edit-avatar-btn { position: absolute; bottom: 0; right: 0; background: var(--neon-blue); color: black; border: none; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+    
+    .profile-avatar { 
+        width: 100%; height: 100%; 
+        border-radius: 50%; 
+        background: rgba(20, 20, 30, 0.5); 
+        display: flex; align-items: center; justify-content: center; 
+        font-size: 3rem; color: white; 
+        border: 3px solid #444; /* Cor base */
+        transition: 0.3s;
+    }
+    
+    .edit-avatar-btn { 
+        position: absolute; bottom: 0; right: 0; 
+        background: var(--neon-blue); color: black; border: none; 
+        width: 35px; height: 35px; border-radius: 50%; 
+        cursor: pointer; display: flex; align-items: center; justify-content: center; 
+        transition: 0.3s; 
+    }
     .edit-avatar-btn:hover { transform: scale(1.1); }
     
-    .avatar-options { display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap; }
-    .avatar-option { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; border: 2px solid transparent; background: rgba(255,255,255,0.1); }
-    .avatar-option:hover { border-color: var(--neon-blue); background: rgba(0, 243, 255, 0.2); }
+    .avatar-options { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+    .avatar-option { 
+        width: 40px; height: 40px; border-radius: 50%; 
+        background: rgba(255,255,255,0.1); cursor: pointer; 
+        display: flex; align-items: center; justify-content: center; 
+        transition: 0.2s; border: 2px solid transparent; 
+    }
+    .avatar-option:hover, .avatar-option.selected { border-color: var(--neon-blue); background: rgba(255,255,255,0.2); }
 
-    /* Estatísticas Mini */
-    .stat-mini-box { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 10px; border: 1px solid var(--glass-border); }
-    .stat-mini-value { font-size: 1.2rem; font-weight: bold; color: white; }
-    .stat-mini-label { font-size: 0.8rem; color: var(--text-muted); }
+    /* Estatísticas de Uso (Novo) */
+    .usage-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 10px;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255,255,255,0.1);
+    }
+    .usage-item {
+        background: rgba(255,255,255,0.03);
+        padding: 10px 5px;
+        border-radius: 8px;
+        text-align: center;
+    }
+    .usage-val { font-weight: bold; font-size: 1.1rem; color: white; }
+    .usage-label { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-top: 5px; }
 
-    @media (max-width: 900px) { .profile-grid { grid-template-columns: 1fr; } }
+    /* Estilo para os Toggles (Switches) */
+    .switch { position: relative; display: inline-block; width: 40px; height: 24px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 34px; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+    input:checked + .slider { background-color: var(--neon-purple); }
+    input:checked + .slider:before { transform: translateX(16px); }
+
+    /* Forms */
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; color: #ccc; font-size: 0.9rem; }
+    .form-input { 
+        width: 100%; padding: 12px; background: rgba(0,0,0,0.3); 
+        border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; 
+        transition: 0.3s;
+    }
+    .form-input:focus { border-color: var(--neon-blue); outline: none; background: rgba(0,0,0,0.5); }
+
+    @media(max-width: 768px) { .profile-grid { grid-template-columns: 1fr; } }
 </style>
 
 <div class="section-container fade-in" style="max-width: 1100px; margin-top: 100px;">
-    <h2 class="mb-20"><i class="fa-solid fa-id-card"></i> Configurações de Conta</h2>
+    <h2 class="mb-20 text-center"><i class="fa-solid fa-id-card"></i> O Meu Perfil</h2>
 
     <div class="profile-grid">
         
         <div class="glass-panel text-center" style="height: fit-content;">
-    
-    <form method="POST" action="{{ url_for('update_avatar') }}">
-        <div class="profile-avatar-container">
-            <div class="profile-avatar">
-                <i class="fa-solid {{ current_user.avatar if current_user.avatar else 'fa-user' }}"></i>
-            </div>
-            <button type="button" class="edit-avatar-btn" onclick="toggleAvatarSelection()" title="Mudar Avatar">
-                <i class="fa-solid fa-camera"></i>
-            </button>
-        </div>
-        
-        <h3 style="margin-bottom: 5px;">
-            {{ current_user.username }}
-            {% if current_user.plan_type == 'Ultra' %}
-                <i class="fa-solid fa-crown" style="color: #f1c40f; font-size: 0.8em;" title="Ultra Member"></i>
-            {% elif current_user.plan_type == 'Pro' %}
-                <i class="fa-solid fa-star" style="color: #3498db; font-size: 0.8em;" title="Pro Member"></i>
-            {% endif %}
-        </h3>
+            
+            <form method="POST" action="{{ url_for('update_profile') }}" id="avatarForm">
+                {% set border_color = '#444' %}
+                {% if current_user.plan_type == 'Pro' %}{% set border_color = 'var(--neon-blue)' %}
+                {% elif current_user.plan_type == 'Ultra' %}{% set border_color = '#f1c40f' %}{% endif %}
 
-        <span class="beta-badge" style="
-            font-size: 0.7rem; 
-            background: {{ user_plan_color if user_plan_color else '#555' }};
-            color: {{ 'black' if current_user.plan_type in ['Pro', 'Ultra'] else 'white' }};
-        ">
-            {{ current_user.plan_type|upper }} MEMBER
-        </span>
-        
-        <div id="avatar-selector" class="hidden glass-panel mt-20" style="padding:15px; border: 1px solid var(--neon-blue);">
-            <p style="font-size:0.8rem; margin:0 0 10px 0;">Escolhe o teu ícone:</p>
-            <div class="avatar-options">
-                <button type="submit" name="avatar" value="fa-user" class="avatar-option"><i class="fa-solid fa-user"></i></button>
-                <button type="submit" name="avatar" value="fa-robot" class="avatar-option"><i class="fa-solid fa-robot"></i></button>
-                <button type="submit" name="avatar" value="fa-user-astronaut" class="avatar-option"><i class="fa-solid fa-user-astronaut"></i></button>
-                <button type="submit" name="avatar" value="fa-user-ninja" class="avatar-option"><i class="fa-solid fa-user-ninja"></i></button>
-                <button type="submit" name="avatar" value="fa-cat" class="avatar-option"><i class="fa-solid fa-cat"></i></button>
-                <button type="submit" name="avatar" value="fa-dragon" class="avatar-option"><i class="fa-solid fa-dragon"></i></button>
-            </div>
-        </div>
-    </form>
+                <div class="profile-avatar-container">
+                    <div class="profile-avatar" style="border-color: {{ border_color }}; box-shadow: 0 0 20px {{ border_color }}40;">
+                        <i class="fa-solid {{ current_user.avatar }}"></i>
+                    </div>
+                    <button type="button" class="edit-avatar-btn" onclick="toggleAvatarSelection()" title="Mudar Avatar">
+                        <i class="fa-solid fa-camera"></i>
+                    </button>
+                </div>
 
-    <div class="section-divider" style="margin: 30px 0;"></div>
-    
-    <div class="stat-mini-box">
-        <div class="stat-mini-value" style="color:var(--success);">${{ "{:,.0f}".format(current_user.virtual_balance) }}</div>
-        <div class="stat-mini-label">Saldo Simulador</div>
-    </div>
-    
-    <div class="stat-mini-box">
-        <div class="stat-mini-value" style="color: {{ user_plan_color }};">
-            {{ current_user.plan_type }}
-        </div>
-        <div class="stat-mini-label">
-            <a href="{{ url_for('pricing_page') }}" style="text-decoration: underline; color: #888;">Gerir Plano</a>
-        </div>
-    </div>
-
-    <div class="glass-panel mt-20 text-center" style="background: rgba(0,0,0,0.2);">
-        <h4 style="margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">
-            <i class="fa-solid fa-trophy" style="color:#f1c40f;"></i> Conquistas
-        </h4>
-        
-        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-            {% if badges %}
-                {% for badge in badges %}
-                <div title="{{ badge.title }}: {{ badge.desc }}" style="position:relative; cursor:help;">
-                    <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {{ badge.color }}; color: {{ badge.color }}; font-size: 1.2rem;">
-                        <i class="fa-solid {{ badge.icon }}"></i>
+                <div id="avatar-selector" class="hidden mb-20 p-10" style="background:rgba(0,0,0,0.2); border-radius:8px; border: 1px solid var(--neon-blue);">
+                    <p class="text-center mb-10 text-sm">Escolhe o teu Avatar:</p>
+                    <div class="avatar-options">
+                        {% set icons = ['fa-user', 'fa-user-astronaut', 'fa-robot', 'fa-user-tie', 'fa-user-ninja', 'fa-cat', 'fa-dragon', 'fa-headset'] %}
+                        {% for icon in icons %}
+                        <label class="avatar-option {{ 'selected' if current_user.avatar == icon }}">
+                            <input type="radio" name="avatar" value="{{ icon }}" style="display:none;" onchange="this.form.submit()">
+                            <i class="fa-solid {{ icon }}"></i>
+                        </label>
+                        {% endfor %}
                     </div>
                 </div>
-                {% endfor %}
-            {% else %}
-                <p class="text-muted" style="font-size: 0.8rem;">
-                    Faz trades para ganhar medalhas!
-                </p>
-            {% endif %}
+            </form>
+
+            <h2 class="mb-5">{{ current_user.name or current_user.username }}</h2>
+            
+            <div style="margin-bottom: 20px;">
+                {% if current_user.plan_type == 'Starter' %}
+                    <span class="badge" style="background:rgba(255,255,255,0.1); color:#ccc; padding:5px 15px; border-radius:15px; font-size:0.75rem; border:1px solid #555;">
+                        STARTER MEMBER
+                    </span>
+                    <div style="margin-top:10px;">
+                        <a href="{{ url_for('pricing_page') }}" style="font-size:0.8rem; color:var(--neon-blue);">Fazer Upgrade</a>
+                    </div>
+                
+                {% elif current_user.plan_type == 'Pro' %}
+                    <span class="badge" style="background:rgba(0, 243, 255, 0.15); color:var(--neon-blue); border:1px solid var(--neon-blue); padding:5px 15px; border-radius:15px; font-size:0.75rem; font-weight:bold;">
+                        <i class="fa-solid fa-star"></i> PRO MEMBER
+                    </span>
+                
+                {% elif current_user.plan_type == 'Ultra' %}
+                    <span class="badge" style="background:rgba(241, 196, 15, 0.15); color:#f1c40f; border:1px solid #f1c40f; padding:5px 15px; border-radius:15px; font-size:0.75rem; font-weight:bold; box-shadow: 0 0 10px rgba(241, 196, 15, 0.3);">
+                        <i class="fa-solid fa-crown"></i> ULTRA VIP
+                    </span>
+                {% endif %}
+            </div>
+
+            <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
+                <div style="color:var(--success); font-size: 1.2rem; font-weight: bold;">
+                    ${{ "{:,.0f}".format(current_user.virtual_balance) }}
+                </div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Saldo Simulador</div>
+            </div>
+
+            <div class="usage-grid">
+                <div class="usage-item">
+                    <div class="usage-val">
+                        {{ current_user.ai_usage_count }} / {{ '5' if current_user.plan_type == 'Pro' else ('∞' if current_user.plan_type == 'Ultra' else '0') }}
+                    </div>
+                    <div class="usage-label">AI Vision</div>
+                </div>
+                <div class="usage-item">
+                    <div class="usage-val">
+                        {{ current_user.watchlist|length }} / {{ '10' if current_user.plan_type == 'Pro' else ('∞' if current_user.plan_type == 'Ultra' else '3') }}
+                    </div>
+                    <div class="usage-label">Watchlist</div>
+                </div>
+                <div class="usage-item">
+                    <div class="usage-val">
+                        {{ current_user.alerts|length }} / {{ '5' if current_user.plan_type == 'Pro' else ('∞' if current_user.plan_type == 'Ultra' else '1') }}
+                    </div>
+                    <div class="usage-label">Alertas</div>
+                </div>
+            </div>
+
+            <div class="mt-20 pt-20" style="border-top:1px solid rgba(255,255,255,0.1);">
+                <h4 style="margin-bottom:15px; font-size:0.9rem; color:#aaa;">CONQUISTAS</h4>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    {% if badges %}
+                        {% for badge in badges %}
+                        <div title="{{ badge.title }}" style="position:relative; cursor:help;">
+                            <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {{ badge.color }}; color: {{ badge.color }}; font-size: 1.2rem;">
+                                <i class="fa-solid {{ badge.icon }}"></i>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted" style="font-size: 0.8rem;">Faz trades para ganhar medalhas!</p>
+                    {% endif %}
+                </div>
+            </div>
         </div>
-    </div>
-</div>
 
         <div>
             <div class="glass-panel mb-20">
                 <h3 class="mb-20"><i class="fa-solid fa-user-pen"></i> Dados Pessoais</h3>
-                <form method="POST" action="{{ url_for('update_profile') }}">
-                    <div class="input-group">
-                        <i class="fa-solid fa-signature"></i>
-                        <input type="text" name="username" value="{{ current_user.username }}" placeholder="Nome de Utilizador">
+                
+                <form action="{{ url_for('update_profile') }}" method="POST">
+                    <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                        <div class="form-group">
+                            <label>Nome de Utilizador</label>
+                            <input type="text" name="username" value="{{ current_user.username }}" class="form-input" readonly style="opacity:0.7; cursor:not-allowed;">
+                        </div>
+                        <div class="form-group">
+                            <label>Nome Completo</label>
+                            <input type="text" name="name" value="{{ current_user.name or '' }}" placeholder="Como queres ser chamado" class="form-input">
+                        </div>
                     </div>
-                    <div class="input-group">
-                        <i class="fa-solid fa-envelope"></i>
-                        <input type="email" name="email" value="{{ current_user.email }}" placeholder="Email">
+
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" name="email" value="{{ current_user.email }}" class="form-input">
                     </div>
+
                     <div class="text-right">
                         <button type="submit" class="btn-glow">Guardar Perfil</button>
                     </div>
@@ -129,18 +208,18 @@
             <div class="glass-panel mb-20">
                 <h3 class="mb-20" style="color: var(--neon-blue);"><i class="fa-solid fa-lock"></i> Segurança</h3>
                 <form method="POST" action="{{ url_for('update_password') }}">
-                    <div class="input-group">
-                        <i class="fa-solid fa-key"></i>
-                        <input type="password" name="old_password" placeholder="Password Atual" required>
+                    <div class="form-group">
+                        <label>Password Atual</label>
+                        <input type="password" name="old_password" class="form-input" required>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div class="input-group">
-                            <i class="fa-solid fa-unlock"></i>
-                            <input type="password" name="new_password" placeholder="Nova Password" required>
+                    <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                        <div class="form-group">
+                            <label>Nova Password</label>
+                            <input type="password" name="new_password" class="form-input" required>
                         </div>
-                        <div class="input-group">
-                            <i class="fa-solid fa-check-double"></i>
-                            <input type="password" name="confirm_password" placeholder="Confirmar Nova" required>
+                        <div class="form-group">
+                            <label>Confirmar Nova</label>
+                            <input type="password" name="confirm_password" class="form-input" required>
                         </div>
                     </div>
                     <div class="text-right">
@@ -175,12 +254,17 @@
 
             <div class="glass-panel" style="border: 1px solid rgba(231, 76, 60, 0.3);">
                 <h3 class="mb-20" style="color: var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> Zona de Perigo</h3>
-                <p class="text-muted" style="font-size:0.9rem; margin-bottom:15px;">
-                    Se apagares a conta, todo o teu histórico e saldo simulado serão perdidos permanentemente.
-                </p>
-                <button class="btn-outline" style="border-color:var(--danger); color:var(--danger);" onclick="alert('Funcionalidade de segurança: Contacte o suporte para apagar a conta.')">
-                    Apagar Conta
-                </button>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <p class="text-muted" style="font-size:0.9rem; margin:0;">
+                        Esta ação é irreversível. Perderás o acesso e todo o histórico.
+                    </p>
+                    <div style="display:flex; gap:10px;">
+                        <a href="{{ url_for('logout') }}" class="btn-outline text-red" style="border-color:var(--danger); color:var(--danger);">Sair</a>
+                        <button class="btn-outline" style="background:rgba(231,76,60,0.1); border-color:var(--danger); color:var(--danger);" onclick="alert('Funcionalidade de segurança: Contacte o suporte para apagar a conta.')">
+                            Apagar
+                        </button>
+                    </div>
+                </div>
             </div>
 
         </div>
@@ -194,25 +278,6 @@
 </script>
 
 <style>
-/* Estilo para os Toggles (Switches) */
-.switch { position: relative; display: inline-block; width: 40px; height: 24px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 34px; }
-.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-input:checked + .slider { background-color: var(--neon-purple); }
-input:checked + .slider:before { transform: translateX(16px); }
+    .hidden { display: none; }
 </style>
-
-<script>
-function shareProfile() {
-    const text = "Estou a bater o mercado no FlowTrade! O meu saldo atual é ${{ '{:,.0f}'.format(current_user.virtual_balance) }}. Tenta superar-me! 🚀 #Crypto #AI";
-    const url = "https://twitter.com/intent/tweet?text=" + encodeURIComponent(text);
-    window.open(url, '_blank');
-}
-
-function copyLink() {
-    navigator.clipboard.writeText(window.location.origin);
-    alert("Link copiado! Envia aos teus amigos.");
-}
-</script>
 {% endblock %}

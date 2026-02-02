@@ -35,7 +35,7 @@
         border-radius: 16px;
         margin-top: 30px;
         line-height: 1.6;
-        display: none; /* Escondido inicialmente */
+        display: none; 
     }
     
     .analysis-result b { color: var(--neon-blue); }
@@ -43,139 +43,175 @@
 </style>
 
 <div class="section-container fade-in" style="margin-top: 100px;">
+    
     <div class="section-header text-center">
         <h2>AI Chart <span class="neon-text">Vision</span></h2>
         <p>Carrega um print do teu gráfico e deixa a AI encontrar os padrões escondidos.</p>
+        
+        {% if current_user.plan_type != 'Starter' %}
+            <div style="background:rgba(255,255,255,0.1); display:inline-block; padding:5px 15px; border-radius:20px; font-size:0.9rem; margin-top:10px;">
+                <i class="fa-solid fa-bolt text-warning"></i> Créditos Hoje: 
+                <strong>{{ remaining }}</strong> / {{ '∞' if user_limit > 100 else user_limit }}
+            </div>
+        {% endif %}
     </div>
+    <div class="section-divider"></div>
 
-    <div class="vision-container glass-panel">
-        <form id="visionForm">
-            <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                <div class="form-group">
-                    <label>Nome da Moeda</label>
-                    <input type="text" name="coin_name" placeholder="Ex: Bitcoin (BTC)" class="form-input" required 
-                           style="width:100%; padding:10px; background:rgba(0,0,0,0.2); border:1px solid #444; color:white; border-radius:6px;">
-                </div>
-                <div class="form-group">
-                    <label>Timeframe</label>
-                    <select name="timeframe" class="form-input" 
-                            style="width:100%; padding:10px; background:rgba(0,0,0,0.2); border:1px solid #444; color:white; border-radius:6px;">
-                        <option value="5m">5 Minutos</option>
-                        <option value="10m">10 Minutos</option>
-                        <option value="15m">15 Minutos</option>
-                        <option value="1H">1 Hora</option>
-                        <option value="2H">2 Horas</option>
-                        <option value="3H">3 Horas</option>
-                        <option value="4H" selected>4 Horas</option>
-                        <option value="1D">Diário</option>
-                        <option value="1W">Semanal</option>
-                        <option value="1M">Mensal</option>
-                    </select>
-                </div>
+    {% if current_user.plan_type == 'Starter' %}
+        <div class="glass-panel text-center" style="max-width: 600px; margin: 0 auto; padding: 60px 20px; border: 1px solid var(--neon-blue);">
+            <div style="font-size: 4rem; color: #555; margin-bottom: 20px;">
+                <i class="fa-solid fa-lock"></i>
             </div>
-
-            <div class="upload-area" id="dropZone">
-                <i class="fa-solid fa-cloud-arrow-up" style="font-size: 3rem; color: #888; margin-bottom: 15px;"></i>
-                <h3>Arrasta o gráfico para aqui</h3>
-                <p class="text-muted">ou clica para selecionar (JPG, PNG)</p>
-                <input type="file" name="chart_image" id="fileInput" accept="image/*" style="display: none;">
-                
-                <img id="imagePreview" class="preview-img">
-            </div>
-
-            <button type="submit" class="btn-glow full-width mt-30" id="analyzeBtn" style="display:none;">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> Analisar Gráfico com AI
-            </button>
-        </form>
-
-        <div id="visionLoader" class="text-center mt-30" style="display:none;">
-            <i class="fa-solid fa-circle-notch fa-spin fa-2x" style="color:var(--neon-blue);"></i>
-            <p class="mt-10">A AI está a ler as velas e indicadores...</p>
+            <h2 class="mb-10">Funcionalidade Pro</h2>
+            <p class="text-muted mb-30">
+                O AI Vision consome recursos avançados de GPU. <br>
+                Faz upgrade para o plano <strong>Pro</strong> ou <strong>Ultra</strong> para desbloquear esta ferramenta.
+            </p>
+            <a href="{{ url_for('pricing_page') }}" class="btn-glow">
+                Fazer Upgrade Agora
+            </a>
         </div>
 
-        <div id="visionResult" class="analysis-result fade-in">
+    {% elif remaining <= 0 and user_limit < 100 %}
+        <div class="glass-panel text-center" style="max-width: 600px; margin: 0 auto; padding: 50px;">
+            <i class="fa-solid fa-battery-empty fa-3x text-danger mb-20"></i>
+            <h3>Limite Diário Atingido</h3>
+            <p class="text-muted mb-30">
+                Já usaste as tuas análises de hoje. Volta amanhã ou passa para Ultra.
+            </p>
+            <a href="{{ url_for('pricing_page') }}" class="btn-outline">
+                Ser Ultra (Ilimitado)
+            </a>
+        </div>
+
+    {% else %}
+        <div class="vision-container glass-panel">
+            <form id="visionForm">
+                <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label>Nome da Moeda</label>
+                        <input type="text" name="coin_name" placeholder="Ex: Bitcoin (BTC)" class="form-input" required 
+                               style="width:100%; padding:10px; background:rgba(0,0,0,0.2); border:1px solid #444; color:white; border-radius:6px;">
+                    </div>
+                    <div class="form-group">
+                        <label>Timeframe</label>
+                        <select name="timeframe" class="form-input" 
+                                style="width:100%; padding:10px; background:rgba(0,0,0,0.2); border:1px solid #444; color:white; border-radius:6px;">
+                            <option value="4H" selected>4 Horas</option>
+                            <option value="1D">Diário</option>
+                            <option value="1W">Semanal</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="upload-area" id="dropZone">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 3rem; color: #888; margin-bottom: 15px;"></i>
+                    <h3>Arrasta o gráfico para aqui</h3>
+                    <p class="text-muted">ou clica para selecionar (JPG, PNG)</p>
+                    <input type="file" name="chart_image" id="fileInput" accept="image/*" style="display: none;">
+                    <img id="imagePreview" class="preview-img">
+                </div>
+
+                <button type="submit" class="btn-glow full-width mt-30" id="analyzeBtn" style="display:none;">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Analisar Gráfico com AI
+                </button>
+            </form>
+
+            <div id="visionLoader" class="text-center mt-30" style="display:none;">
+                <i class="fa-solid fa-circle-notch fa-spin fa-2x" style="color:var(--neon-blue);"></i>
+                <p class="mt-10">A AI está a ler as velas e indicadores...</p>
             </div>
-    </div>
-</div>
 
-<script>
-    const dropZone = document.getElementById('dropZone');
-    const fileInput = document.getElementById('fileInput');
-    const imagePreview = document.getElementById('imagePreview');
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const visionForm = document.getElementById('visionForm');
-    const visionLoader = document.getElementById('visionLoader');
-    const visionResult = document.getElementById('visionResult');
+            <div id="visionResult" class="analysis-result fade-in"></div>
+        </div>
 
-    // Click para abrir ficheiros
-    dropZone.addEventListener('click', () => fileInput.click());
+        <script>
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+            const imagePreview = document.getElementById('imagePreview');
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const visionForm = document.getElementById('visionForm');
+            const visionLoader = document.getElementById('visionLoader');
+            const visionResult = document.getElementById('visionResult');
 
-    // Drag & Drop
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-    });
-    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-    
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length) {
-            fileInput.files = e.dataTransfer.files;
-            handleFile(fileInput.files[0]);
-        }
-    });
+            // Click para abrir ficheiros
+            dropZone.addEventListener('click', () => fileInput.click());
 
-    // Quando seleciona ficheiro
-    fileInput.addEventListener('change', () => {
-        if (fileInput.files.length) handleFile(fileInput.files[0]);
-    });
-
-    function handleFile(file) {
-        if (file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                imagePreview.src = e.target.result;
-                imagePreview.style.display = 'block';
-                analyzeBtn.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
-        } else {
-            alert('Por favor carrega apenas imagens.');
-        }
-    }
-
-    // Enviar Formulário via AJAX
-    visionForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData(visionForm);
-        
-        visionResult.style.display = 'none';
-        visionLoader.style.display = 'block';
-        analyzeBtn.disabled = true;
-
-        try {
-            const response = await fetch('/ai/vision', {
-                method: 'POST',
-                body: formData
+            // Drag & Drop
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
             });
-            const data = await response.json();
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFile(fileInput.files[0]);
+                }
+            });
 
-            visionLoader.style.display = 'none';
-            analyzeBtn.disabled = false;
+            // Quando seleciona ficheiro
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length) handleFile(fileInput.files[0]);
+            });
 
-            if (data.status === 'success') {
-                visionResult.innerHTML = `<h3><i class="fa-solid fa-robot"></i> Análise Completa</h3>` + data.analysis;
-                visionResult.style.display = 'block';
-            } else {
-                alert(data.error || 'Erro desconhecido');
+            function handleFile(file) {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        imagePreview.src = e.target.result;
+                        imagePreview.style.display = 'block';
+                        analyzeBtn.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    alert('Por favor carrega apenas imagens.');
+                }
             }
-        } catch (err) {
-            visionLoader.style.display = 'none';
-            analyzeBtn.disabled = false;
-            alert('Erro de conexão.');
-        }
-    });
-</script>
+
+            // Enviar Formulário via AJAX
+            visionForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(visionForm);
+                
+                visionResult.style.display = 'none';
+                visionLoader.style.display = 'block';
+                analyzeBtn.disabled = true;
+
+                try {
+                    const response = await fetch('/ai/vision', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await response.json();
+
+                    visionLoader.style.display = 'none';
+                    analyzeBtn.disabled = false;
+
+                    if (data.status === 'success') {
+                        visionResult.innerHTML = `<h3><i class="fa-solid fa-robot"></i> Análise Completa</h3>` + data.analysis;
+                        visionResult.style.display = 'block';
+                        
+                        // Atualizar contador visualmente
+                        const counter = document.querySelector('.fa-bolt').nextElementSibling;
+                        if(counter && !counter.innerText.includes('∞')) {
+                            let current = parseInt(counter.innerText);
+                            if(!isNaN(current)) counter.innerText = current - 1;
+                        }
+                    } else {
+                        alert(data.error || 'Erro desconhecido');
+                    }
+                } catch (err) {
+                    visionLoader.style.display = 'none';
+                    analyzeBtn.disabled = false;
+                    alert('Erro de conexão.');
+                }
+            });
+        </script>
+    {% endif %}
+</div>
 {% endblock %}

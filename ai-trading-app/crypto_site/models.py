@@ -1,5 +1,5 @@
 # models.py
-from datetime import datetime
+from datetime import datetime, date
 from flask_login import UserMixin
 from extensions import db
 
@@ -15,7 +15,7 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(150), nullable=False)
     name = db.Column(db.String(100))
     avatar = db.Column(db.String(50), default='fa-user')
-    special_role = db.Column(db.String(50), nullable=True)
+    special_role = db.Column(db.String(50), default="REGULAR")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     plan_type = db.Column(db.String(20), default='Starter')
     alerts = db.relationship('PriceAlert', backref='owner', lazy=True)
@@ -23,6 +23,8 @@ class User(UserMixin, db.Model):
     virtual_balance = db.Column(db.Float, default=10000.0)
     portfolio = db.relationship('Portfolio', backref='owner', lazy=True)
     transactions = db.relationship('Transaction', backref='owner', lazy=True)
+    ai_usage_count = db.Column(db.Integer, default=0) 
+    last_ai_usage = db.Column(db.Date, nullable=True) 
 
 class Portfolio(db.Model):
     id = db.Column(db.Integer, primary_key=True)
