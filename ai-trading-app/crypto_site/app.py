@@ -1,31 +1,30 @@
+# app.py
 import os
 import json
-from datetime import datetime
+import feedparser
 from flask import Flask, render_template, jsonify, request, redirect, url_for, flash
-from google import genai
-from google.genai import types
-import yfinance as yf
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
-import requests
-from flask_caching import Cache
-
-# NOVAS IMPORTAÇÕES PARA O EMAIL
-from flask_mail import Mail, Message
+from flask_login import login_user, login_required, logout_user, current_user
+from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer
+import yfinance as yf
 
-# --- CONFIGURAÇÃO INICIAL ---
+# --- IMPORTAÇÕES LOCAIS (A nova organização) ---
+from extensions import db, login_manager, mail, cache
+from models import User, Watchlist, Portfolio, Transaction
+from utils import (
+    get_stock_price, get_user_badges, get_market_sentiment, 
+    get_market_movers, get_top_cryptos, get_quick_ticker_data, 
+    smart_format, client # Cliente AI importado do utils
+)
 
+# Configuração Inicial
 load_dotenv(encoding="utf-8")
-
 app = Flask(__name__)
 
-# 1. DEFINIR A SECRET_KEY (MUITO IMPORTANTE: TEM DE SER A PRIMEIRA COISA)
+# Configurações do Servidor
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "chave-secreta-padrao-123")
-
-# 2. CONFIGURAR O EMAIL
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
@@ -33,734 +32,42 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
 
-# 3. INICIALIZAR EXTENSÕES (Só agora que a SECRET_KEY já existe)
-mail = Mail(app)
-# Este comando falhava porque a SECRET_KEY ainda não existia nas linhas anteriores
-token_serializer = URLSafeTimedSerializer(app.config['SECRET_KEY']) 
-
-cache = Cache(app, config={'CACHE_TYPE': 'SimpleCache', 'CACHE_DEFAULT_TIMEOUT': 60})
-
-# Configuração da AI
-API_KEY = os.getenv("GENAI_API_KEY")
-if API_KEY:
-    client = genai.Client(api_key=API_KEY)
-
-# Configuração da Base de Dados
+# Base de Dados
 database_url = os.getenv("DATABASE_URL", "sqlite:///db.sqlite")
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
-
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
-login_manager = LoginManager()
-login_manager.login_view = 'login_page'
+# --- INICIALIZAR EXTENSÕES ---
+db.init_app(app)
 login_manager.init_app(app)
+login_manager.login_view = 'login_page'
+mail.init_app(app)
+cache.init_app(app)
 
-# --- MODELOS DA BASE DE DADOS (ATUALIZADOS) ---
-class Watchlist(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    symbol = db.Column(db.String(20), nullable=False)
-
-
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    email = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(150), nullable=False)
-    name = db.Column(db.String(100))
-    avatar = db.Column(db.String(50), default='fa-user')
-    special_role = db.Column(db.String(50), nullable=True)
-    watchlist = db.relationship('Watchlist', backref='owner', lazy=True)
-    # NOVO CAMPO: Data de criação da conta
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    # Paper Trading: Saldo Virtual (Começa com 10k)
-    virtual_balance = db.Column(db.Float, default=10000.0)
-    # Relações
-    portfolio = db.relationship('Portfolio', backref='owner', lazy=True)
-    transactions = db.relationship('Transaction', backref='owner', lazy=True)
-
-class Portfolio(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    symbol = db.Column(db.String(20), nullable=False) # Ex: BTC
-    amount = db.Column(db.Float, nullable=False)      # Quantidade
-    avg_price = db.Column(db.Float, nullable=False)   # Preço médio de compra
-
-class Transaction(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    symbol = db.Column(db.String(20), nullable=False)
-    type = db.Column(db.String(10), nullable=False)   # 'BUY' ou 'SELL'
-    price = db.Column(db.Float, nullable=False)       # Preço na hora
-    amount = db.Column(db.Float, nullable=False)
-    total_value = db.Column(db.Float, nullable=False) # Custo total
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-
-# Criar tabelas se não existirem
-with app.app_context():
-    db.create_all()
+token_serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
 
 @login_manager.user_loader
 def load_user(user_id):
-    # A função .get() antiga foi substituída por db.session.get()
     return db.session.get(User, int(user_id))
 
-# --- FUNÇÕES AUXILIARES ---
-
-def get_user_badges(user):
-    badges = []
-    
-    # --- BADGE 1: INICIADO (Fez 1 trade) ---
-    # Verifica se transactions existe e tem itens
-    if user.transactions and len(user.transactions) > 0:
-        badges.append({'icon': 'fa-rocket', 'color': '#3498db', 'title': 'Iniciado', 'desc': 'Fez o primeiro trade'})
-        
-    # --- BADGE 2: VETERANO (10+ trades) ---
-    if user.transactions and len(user.transactions) >= 10:
-        badges.append({'icon': 'fa-medal', 'color': '#9b59b6', 'title': 'Veterano', 'desc': 'Mais de 10 operações'})
-
-    # --- BADGE 3: BALEIA (Lucro > 50%) ---
-    # Se o saldo for > 15k (começa com 10k)
-    if user.virtual_balance >= 15000:
-         badges.append({'icon': 'fa-crown', 'color': '#f1c40f', 'title': 'Baleia', 'desc': 'Lucro superior a 50%'})
-    
-    # --- BADGE 4: ADMIN/VIP (Manual) ---
-    # Verifica se a coluna existe para evitar erros se não atualizaste a BD
-    if hasattr(user, 'special_role'):
-        if user.special_role == 'ADMIN':
-            badges.append({'icon': 'fa-shield-halved', 'color': '#e74c3c', 'title': 'Admin', 'desc': 'Staff'})
-        elif user.special_role == 'VIP':
-            badges.append({'icon': 'fa-star', 'color': '#d35400', 'title': 'VIP', 'desc': 'Membro VIP'})
-
-    return badges
-
-# --- ADICIONAR NO APP.PY ---
-
-def calculate_user_net_worth(user):
-    """Calcula o património total (Saldo + Valor das Moedas em carteira)"""
-    total_value = user.virtual_balance
-    
-    # Se o user tiver portfolio, somar o valor atual das moedas
-    if user.portfolio:
-        # Para ser rápido no leaderboard, vamos tentar usar cache ou valores aproximados
-        # Mas aqui vamos buscar live para ser preciso
-        for item in user.portfolio:
-            try:
-                # Tenta buscar preço rápido
-                ticker_name = f"{item.symbol}-USD"
-                ticker = yf.Ticker(ticker_name)
-                # fast_info é mais rápido que history
-                current_price = ticker.fast_info.last_price 
-                if current_price:
-                    total_value += (item.amount * current_price)
-                else:
-                    total_value += (item.amount * item.avg_price) # Fallback
-            except:
-                total_value += (item.amount * item.avg_price) # Fallback seguro
-                
-    return total_value
-
-@app.route('/leaderboard')
-def leaderboard_page():
-    users = User.query.all()
-    leaderboard_data = []
-    
-    for u in users:
-        # Calcular Net Worth (Simplificado)
-        net_worth = u.virtual_balance
-        if u.portfolio:
-            for item in u.portfolio:
-                net_worth += (item.amount * item.avg_price) # Simplificado
-
-        pnl_pct = ((net_worth - 10000) / 10000) * 100
-        
-        # AQUI ESTÁ A CORREÇÃO: Usar a mesma função para toda a gente
-        user_badges = get_user_badges(u)
-        
-        leaderboard_data.append({
-            'username': u.username,
-            'avatar': u.avatar if u.avatar else 'fa-user',
-            'net_worth': net_worth,
-            'pnl_pct': pnl_pct,
-            'badges': user_badges, # <--- IMPORTANTE: Enviar para o HTML
-            'is_current': (current_user.is_authenticated and u.id == current_user.id)
-        })
-    
-    # Ordenar
-    leaderboard_data.sort(key=lambda x: x['net_worth'], reverse=True)
-    
-    return render_template('leaderboard.html', ranking=leaderboard_data, active_page='leaderboard')
-
-# 1. Rota que pede o email e envia o link
-@app.route('/forgot-password', methods=['GET', 'POST'])
-def forgot_password():
-    if request.method == 'POST':
-        email = request.form.get('email')
-        user = User.query.filter_by(email=email).first()
-        
-        if user:
-            # Gerar token seguro (expira em 30 min)
-            token = token_serializer.dumps(user.email, salt='recover-key')
-            
-            # Criar link de recuperação
-            link = url_for('reset_password', token=token, _external=True)
-            
-            # Enviar Email
-            msg = Message('Recuperar Password - FlowTrade', recipients=[email])
-            msg.body = f'FlowTraders - Galaxy. Esqueceste-te da password? Clica neste link para mudares a password: {link}\nO link expira em 30 minutos.'
-            try:
-                mail.send(msg)
-                flash('Email de recuperação enviado! Verifica a caixa de spam.', 'success')
-            except Exception as e:
-                flash(f'Erro ao enviar email: {e}', 'error')
-        else:
-            flash('Email não encontrado.', 'error')
-            
-        return redirect(url_for('login_page'))
-        
-    return render_template('auth.html', mode='forgot')
-
-
-# 2. Rota que recebe o token e muda a password
-@app.route('/reset-password/<token>', methods=['GET', 'POST'])
-def reset_password(token):
-    try:
-        # Verificar se o token é válido e tem menos de 30 min (1800 segundos)
-        email = token_serializer.loads(token, salt='recover-key', max_age=1800)
-    except:
-        flash('O link é inválido ou expirou.', 'error')
-        return redirect(url_for('forgot_password'))
-    
-    if request.method == 'POST':
-        password = request.form.get('password')
-        user = User.query.filter_by(email=email).first_or_404()
-        
-        # Mudar a password
-        user.password = generate_password_hash(password, method='pbkdf2:sha256')
-        db.session.commit()
-        
-        flash('Password alterada com sucesso! Podes entrar.', 'success')
-        return redirect(url_for('login_page'))
-        
-    return render_template('reset_password.html', token=token)
-
-@app.route('/trader/<username>')
-@login_required
-def public_profile(username):
-    user = User.query.filter_by(username=username).first_or_404()
-    
-    # Calcular stats
-    net_worth = user.virtual_balance
-    portfolio_list = []
-    
-    if user.portfolio:
-        for item in user.portfolio:
-            # Lógica de preço (simplificada)
-            current_price = item.avg_price # Em produção usarias API
-            val = item.amount * current_price
-            net_worth += val
-            portfolio_list.append({'symbol': item.symbol, 'amount': item.amount, 'value': val})
-        
-    pnl = ((net_worth - 10000) / 10000) * 100
-    
-    # --- NOVO: BUSCAR BADGES DO UTILIZADOR VISITADO ---
-    badges = get_user_badges(user) 
-    
-    return render_template('public_profile.html', 
-                           trader=user, 
-                           net_worth=net_worth, 
-                           pnl=pnl, 
-                           portfolio=portfolio_list,
-                           badges=badges) # <--- Envia badges para o HTML
-
-@app.route('/copy_trade/preview/<target_username>')
-@login_required
-def copy_trade_preview(target_username):
-    target_user = User.query.filter_by(username=target_username).first_or_404()
-    
-    if target_user.id == current_user.id:
-        flash("Não podes copiar-te a ti mesmo.", "error")
-        return redirect(url_for('profile_page'))
-
-    if not target_user.portfolio:
-        flash(f"O utilizador {target_username} não tem ativos para copiar.", "info")
-        return redirect(url_for('public_profile', username=target_username))
-
-    total_cost_to_copy = 0.0
-    target_assets = []
-    
-    # --- OTIMIZAÇÃO: 1. Preparar lista de Símbolos ---
-    symbols_map = {} 
-    tickers_to_fetch = []
-
-    for item in target_user.portfolio:
-        yf_symbol = f"{item.symbol}-USD" if not item.symbol.endswith("-USD") else item.symbol
-        tickers_to_fetch.append(yf_symbol)
-        symbols_map[item.symbol] = yf_symbol
-
-    # --- OTIMIZAÇÃO: 2. Buscar Preços em Massa ---
-    live_prices = {}
-    if tickers_to_fetch:
-        try:
-            # Download RÁPIDO de tudo de uma vez
-            data = yf.download(tickers_to_fetch, period="1d", interval="1d", progress=False, threads=True, group_by='ticker')
-            
-            for symbol in tickers_to_fetch:
-                try:
-                    if len(tickers_to_fetch) == 1:
-                        price = data['Close'].iloc[-1]
-                    else:
-                        price = data[symbol]['Close'].iloc[-1]
-                    
-                    if float(price) > 0:
-                        live_prices[symbol] = float(price)
-                except:
-                    pass 
-        except Exception as e:
-            print(f"Erro batch download copy: {e}")
-
-    # 3. Construir lista final
-    for item in target_user.portfolio:
-        yf_symbol = symbols_map.get(item.symbol)
-        # Usa o preço live obtido em massa ou o preço médio do user como fallback
-        current_price = live_prices.get(yf_symbol, item.avg_price)
-        
-        cost = item.amount * current_price
-        total_cost_to_copy += cost
-        
-        target_assets.append({
-            'symbol': item.symbol,
-            'amount': item.amount,
-            'current_price': current_price,
-            'cost': cost
-        })
-
-    # Calcular o Património do Utilizador Atual
-    my_cash = current_user.virtual_balance
-    my_assets_value = 0.0
-    
-    # Estimativa rápida do valor dos teus ativos (usando avg_price para ser instantâneo)
-    for item in current_user.portfolio:
-        my_assets_value += (item.amount * item.avg_price)
-
-    total_equity = my_cash + my_assets_value
-    badges = get_user_badges(target_user)
-
-    return render_template('copy_confirm.html', 
-                           target=target_user,
-                           target_assets=target_assets,
-                           total_cost=total_cost_to_copy,
-                           my_cash=my_cash,
-                           my_equity=total_equity,
-                           badges=badges)
-
-@app.route('/copy_trade/execute/<target_username>', methods=['POST'])
-@login_required
-def copy_trade_execute(target_username):
-    target_user = User.query.filter_by(username=target_username).first_or_404()
-    action_type = request.form.get('action_type') # 'direct_buy' ou 'sell_and_buy'
-    
-    try:
-        # --- OTIMIZAÇÃO: Buscar TODOS os preços de execução de uma vez ---
-        tickers_to_fetch = [f"{item.symbol}-USD" for item in target_user.portfolio]
-        live_prices = {}
-        
-        if tickers_to_fetch:
-            data = yf.download(tickers_to_fetch, period="1d", interval="1d", progress=False, threads=True, group_by='ticker')
-            for item in target_user.portfolio:
-                sym = f"{item.symbol}-USD"
-                try:
-                    if len(tickers_to_fetch) == 1:
-                        price = float(data['Close'].iloc[-1])
-                    else:
-                        price = float(data[sym]['Close'].iloc[-1])
-                    live_prices[sym] = price
-                except:
-                    live_prices[sym] = item.avg_price # Fallback
-
-        # Calcular custo real necessário
-        cost_needed = 0.0
-        orders_to_execute = []
-        
-        for item in target_user.portfolio:
-            yf_sym = f"{item.symbol}-USD"
-            price = live_prices.get(yf_sym, item.avg_price)
-            cost = item.amount * price
-            cost_needed += cost
-            orders_to_execute.append({
-                'symbol': item.symbol, 
-                'amount': item.amount, 
-                'price': price, 
-                'cost': cost
-            })
-
-        # Vender ativos atuais se necessário
-        if action_type == 'sell_and_buy':
-            liquidation_value = 0
-            # Apaga tudo de uma vez (mais rápido) e soma valores
-            for my_item in current_user.portfolio:
-                # Usa avg_price para venda rápida ou podes fazer outro fetch se quiseres precisão máxima
-                sell_val = my_item.amount * my_item.avg_price 
-                liquidation_value += sell_val
-                
-                tx = Transaction(user_id=current_user.id, symbol=my_item.symbol, type="SELL", 
-                                 price=my_item.avg_price, amount=my_item.amount, total_value=sell_val)
-                db.session.add(tx)
-                db.session.delete(my_item)
-            
-            current_user.virtual_balance += liquidation_value
-            db.session.commit()
-
-        # Verificar Saldo
-        if current_user.virtual_balance < cost_needed:
-            flash(f"Saldo insuficiente. Precisas de ${cost_needed:,.2f}.", "error")
-            return redirect(url_for('copy_trade_preview', target_username=target_username))
-
-        # EXECUTAR A COMPRA
-        for order in orders_to_execute:
-            current_user.virtual_balance -= order['cost']
-            
-            existing = Portfolio.query.filter_by(user_id=current_user.id, symbol=order['symbol']).first()
-            if existing:
-                total_old = existing.amount * existing.avg_price
-                new_amount = existing.amount + order['amount']
-                existing.avg_price = (total_old + order['cost']) / new_amount
-                existing.amount = new_amount
-            else:
-                new_pos = Portfolio(user_id=current_user.id, symbol=order['symbol'], 
-                                    amount=order['amount'], avg_price=order['price'])
-                db.session.add(new_pos)
-            
-            tx = Transaction(user_id=current_user.id, symbol=order['symbol'], type="BUY", 
-                             price=order['price'], amount=order['amount'], total_value=order['cost'])
-            db.session.add(tx)
-
-        db.session.commit()
-        flash(f"Portfólio de {target_username} copiado com sucesso!", "success")
-        return redirect(url_for('paper_trading'))
-
-    except Exception as e:
-        db.session.rollback()
-        print(f"Erro execute copy: {e}")
-        flash("Erro ao executar cópia. Tenta novamente.", "error")
-        return redirect(url_for('leaderboard_page'))
-
-@app.route('/toggle_watchlist/<ticker>')
-@login_required
-def toggle_watchlist(ticker):
-    ticker = ticker.upper()
-    exists = Watchlist.query.filter_by(user_id=current_user.id, symbol=ticker).first()
-    
-    if exists:
-        db.session.delete(exists)
-        msg = f"{ticker} removido dos favoritos."
-        action = "removed"
-    else:
-        new_item = Watchlist(user_id=current_user.id, symbol=ticker)
-        db.session.add(new_item)
-        msg = f"{ticker} adicionado aos favoritos."
-        action = "added"
-    
-    db.session.commit()
-    # Retorna JSON para o JavaScript usar nos Toasts
-    return {"status": "success", "message": msg, "action": action}
-
-
-@app.route('/api/news')
-@cache.cached(timeout=300) # Cache de 5 min para não bloquear
-def get_crypto_news():
-    try:
-        # Feed RSS do Cointelegraph (Grátis)
-        feed = feedparser.parse("https://cointelegraph.com/rss")
-        news = []
-        for entry in feed.entries[:5]: # Pegar apenas as 5 últimas
-            news.append({
-                'title': entry.title,
-                'link': entry.link,
-                'published': entry.published
-            })
-        return {"news": news}
-    except:
-        return {"news": []}
-    
-
-@app.route('/copy_trade/<target_username>')
-@login_required
-def copy_trade(target_username):
-    target_user = User.query.filter_by(username=target_username).first_or_404()
-    
-    if target_user.id == current_user.id:
-        flash("Não podes copiar-te a ti mesmo!", "error")
-        return redirect(url_for('leaderboard_page'))
-
-    # Lógica Simplificada: Vende tudo e compra igual ao alvo
-    # 1. Limpar portfolio atual (Venda total simulada)
-    current_value = current_user.virtual_balance
-    for item in current_user.portfolio:
-        # Assumindo preço médio como venda para simplificar este exemplo
-        current_value += (item.amount * item.avg_price)
-        db.session.delete(item)
-    
-    current_user.virtual_balance = current_value # Saldo agora é 100% Cash
-    
-    # 2. Copiar estrutura do Alvo
-    target_total_worth = target_user.virtual_balance
-    for item in target_user.portfolio:
-        target_total_worth += (item.amount * item.avg_price)
-    
-    # Se o alvo tiver só cash, não fazemos nada
-    if target_total_worth <= 0: return redirect(url_for('profile_page'))
-
-    # Comprar proporções
-    for item in target_user.portfolio:
-        item_val = item.amount * item.avg_price
-        weight = item_val / target_total_worth # % da carteira
-        
-        invest_amount = current_value * weight
-        if invest_amount > 10: # Mínimo $10
-            # Adicionar ao meu portfolio
-            new_pos = Portfolio(
-                user_id=current_user.id,
-                symbol=item.symbol,
-                amount=invest_amount / item.avg_price, # Preço de entrada igual ao do alvo (simulado)
-                avg_price=item.avg_price
-            )
-            db.session.add(new_pos)
-            current_user.virtual_balance -= invest_amount
-
-    db.session.commit()
-    flash(f"Carteira de {target_username} copiada com sucesso!", "success")
-    return redirect(url_for('paper_trading'))
-
-def smart_format(value):
-    if value is None: return "$0.00"
-    if value < 1.0: return f"${value:.8f}"
-    else: return f"${value:,.2f}"
-
-def get_quick_ticker_data():
-    tickers = ['BTC-USD', 'ETH-USD', 'SOL-USD']
-    data = []
-    try:
-        for t in tickers:
-            stock = yf.Ticker(t)
-            hist = stock.history(period="2d")
-            if len(hist) >= 1:
-                curr = hist['Close'].iloc[-1]
-                change = 0
-                if len(hist) >= 2:
-                    prev = hist['Close'].iloc[-2]
-                    change = ((curr - prev) / prev) * 100
-                data.append({
-                    "symbol": t.replace("-USD", ""),
-                    "price": smart_format(curr),
-                    "change": f"{abs(change):.2f}",
-                    "color": "green" if change >= 0 else "red",
-                    "sign": "+" if change >= 0 else "-"
-                })
-    except: pass
-    return data
-
-def get_market_sentiment():
-    """Busca o Fear & Greed Index real da API alternative.me"""
-    try:
-        response = requests.get("https://api.alternative.me/fng/?limit=1", timeout=5)
-        data = response.json()
-        value = int(data['data'][0]['value'])
-        classification = data['data'][0]['value_classification']
-        return {"value": value, "text": classification}
-    except:
-        # Fallback se a API falhar
-        return {"value": 50, "text": "Neutral (Offline)"}
-
-def get_market_movers():
-    # Lista de moedas populares para monitorizar
-    tickers = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'XRP-USD', 'DOGE-USD', 'ADA-USD', 'AVAX-USD', 'LINK-USD', 'SHIB-USD', 'DOT-USD']
-    
-    movers_data = []
-    
-    try:
-        # Tenta buscar dados em massa (mais rápido)
-        tickers_str = " ".join(tickers)
-        data = yf.download(tickers_str, period="2d", progress=False)['Close']
-        
-        # Calcular variação para cada moeda
-        for t in tickers:
-            try:
-                # O yfinance às vezes devolve MultiIndex, precisamos tratar
-                current = data[t].iloc[-1]
-                prev = data[t].iloc[-2]
-                change = ((current - prev) / prev) * 100
-                symbol = t.replace('-USD', '')
-                
-                movers_data.append({
-                    'symbol': symbol,
-                    'change': change,
-                    'price': current
-                })
-            except:
-                continue
-                
-        # Ordenar: Gainers (maior para menor) e Losers (menor para maior)
-        movers_data.sort(key=lambda x: x['change'], reverse=True)
-        
-        gainers = movers_data[:3] # Top 3
-        losers = movers_data[-3:] # Bottom 3 (estão no fim da lista)
-        losers.sort(key=lambda x: x['change']) # Reordenar para mostrar o pior primeiro
-        
-        return gainers, losers
-    except Exception as e:
-        print(f"Erro movers: {e}")
-        return [], []
-
-@cache.memoize(timeout=120) # Guarda o resultado por 2 minutos
-def get_top_cryptos(limit=5):
-    """
-    Busca dados reais. 
-    Removido UNI e outras instáveis para evitar lentidão.
-    """
-    # Lista limpa de moedas que o Yahoo Finance aceita bem
-    top_tickers = [
-        'BTC-USD', 'ETH-USD', 'SOL-USD', 'BNB-USD', 'XRP-USD', 
-        'DOGE-USD', 'ADA-USD', 'AVAX-USD', 'TRX-USD', 'LINK-USD', 
-        'DOT-USD', 'LTC-USD', 'BCH-USD', 'SHIB-USD', 'ADA-USD',
-        'ATOM-USD', 'XLM-USD', 'ETC-USD', 'FIL-USD', 'ICP-USD'
-    ]
-    
-    # Garante que não pedimos mais do que existem na lista
-    limit = min(limit, len(top_tickers))
-    selected = top_tickers[:limit]
-    data = []
-    
-    try:
-        # Tenta descarregar tudo de uma vez (Mais rápido)
-        tickers = yf.Tickers(" ".join(selected))
-        
-        for symbol in selected:
-            try:
-                # Aceder aos dados
-                ticker_obj = tickers.tickers.get(symbol)
-                if not ticker_obj: continue
-
-                # Tenta obter o preço de forma segura
-                # fast_info é muito mais rápido que history()
-                info = ticker_obj.fast_info
-                
-                price = info.last_price
-                prev_close = info.previous_close
-                
-                if price is None or prev_close is None:
-                    continue # Se não houver dados, salta
-
-                # Cálculos
-                change_pct = ((price - prev_close) / prev_close) * 100
-                
-                # Limpar nome (BTC-USD -> BTC)
-                clean_symbol = symbol.replace("-USD", "")
-                
-                # Ícones
-                supported_icons = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LTC', 'BCH', 'DOT', 'LINK']
-                if clean_symbol in supported_icons:
-                    icon_class = f"fa-brands fa-{clean_symbol.lower()}"
-                else:
-                    icon_class = "fa-solid fa-coins"
-
-                data.append({
-                    "symbol": clean_symbol,
-                    "price": smart_format(price),
-                    "change": f"{change_pct:+.2f}%",
-                    "change_raw": change_pct, # <--- CRUCIAL PARA A COR FUNCIONAR
-                    "icon": icon_class,
-                    "color": "text-green" if change_pct >= 0 else "text-red" # Envia a classe direto
-                })
-                
-            except Exception as inner_e:
-                # Se uma moeda falhar, ignora e segue para a próxima (Não trava o site)
-                print(f"Erro ao ler {symbol}: {inner_e}")
-                continue
-                
-    except Exception as e:
-        print(f"Erro geral YFinance: {e}")
-        
-    return data
 # --- ROTAS PRINCIPAIS ---
 
 @app.route('/')
-@cache.memoize(timeout=60) # A pagina Home guardada por 1 minuto
+@cache.memoize(timeout=60)
 def home():
-    # 1. Buscar Sentimento Real
     sentiment = get_market_sentiment()
-    
-    # 2. Buscar Top 5 para a Home
     top_5_crypto = get_top_cryptos(limit=5)
-    
-    # 3. Ticker Tape (Dados rápidos)
-    ticker_data = get_quick_ticker_data() # Mantém a tua função antiga ou usa a nova
-    
-    return render_template('home.html', 
-                           active_page='home', 
-                           sentiment=sentiment, 
-                           top_crypto=top_5_crypto,
-                           ticker_data=ticker_data)
+    ticker_data = get_quick_ticker_data()
+    return render_template('home.html', active_page='home', sentiment=sentiment, top_crypto=top_5_crypto, ticker_data=ticker_data)
 
 @app.route('/crypto')
 @login_required
-@cache.cached(timeout=60) # Cache importante aqui!
+@cache.cached(timeout=60)
 def crypto_page():
-    # Buscar Gainers e Losers Reais
     gainers, losers = get_market_movers()
-    # Agora a página crypto carrega as Top 20 reais
-    top_20 = get_top_cryptos(limit=20)
-    return render_template('crypto.html', 
-                           market_data=get_top_cryptos(limit=20), # A tua função antiga
-                           gainers=gainers, 
-                           losers=losers, 
-                           active_page='crypto')
-
-@app.route('/crypto/analyze')
-@login_required
-def crypto_analyze_page():
-    return render_template('crypto_analyze.html', active_page='crypto')
-
-@app.route('/crypto/recommend')
-@login_required
-def crypto_recommend_page():
-    return render_template('crypto_recommend.html', active_page='crypto')
-
-@app.route('/crypto/strategy')
-@login_required
-def crypto_strategy_page():
-    return render_template('crypto_strategy.html', active_page='crypto')
-
-@app.route('/crypto/decoder')
-@login_required
-def crypto_decoder_page():
-    return render_template('crypto_decoder.html', active_page='crypto')
-
-@app.route('/etf')
-def etf_page(): return render_template('etf.html', active_page='etf')
-
-# Rotas que faltavam antes
-@app.route('/screener')
-@login_required 
-def screener_page(): return render_template('screener.html', active_page='screener')
-
-@app.route('/ai')
-@login_required
-def ai_page(): return render_template('ai.html', active_page='ai')
-
-@app.route('/risk')
-@login_required
-def risk_page(): return render_template('risk.html', active_page='risk')
-
-# --- ROTAS LEGAIS (Novas) ---
-@app.route('/legal/terms')
-def terms_page(): return render_template('legal_terms.html')
-
-@app.route('/legal/privacy')
-def privacy_page(): return render_template('legal_privacy.html')
+    return render_template('crypto.html', market_data=get_top_cryptos(limit=20), gainers=gainers, losers=losers, active_page='crypto')
 
 # --- AUTENTICAÇÃO ---
 
@@ -769,90 +76,34 @@ def login_page():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
-        
         user = User.query.filter_by(email=email).first()
-        
         if user and check_password_hash(user.password, password):
             login_user(user)
             flash('Login efetuado com sucesso!', 'success')
-            return redirect(url_for('home')) # Ou para onde quiseres ir
+            return redirect(url_for('home'))
         else:
             flash('Email ou password incorretos.', 'error')
-
-    # AQUI ESTÁ A CORREÇÃO: Usa auth.html com modo login
     return render_template('auth.html', mode='login')
 
-
-# --- ROTA DE PERFIL (CORRIGIDA) ---
-@app.route('/profile', methods=['GET', 'POST'])
-@login_required
-def profile_page():
-    my_badges = get_user_badges(current_user)
-    
-    return render_template('profile.html', active_page='profile', badges=my_badges)
-
-@app.route('/update_profile', methods=['POST'])
-@login_required
-def update_profile():
-    username = request.form.get('username')
-    email = request.form.get('email')
-    
-    # Validação simples
-    existing_user = User.query.filter_by(username=username).first()
-    if existing_user and existing_user.id != current_user.id:
-        flash('Nome de utilizador já está em uso.', 'error')
-    else:
-        current_user.username = username
-        current_user.email = email
-        try:
-            db.session.commit()
-            flash('Dados atualizados!', 'success')
-        except:
-            flash('Erro ao guardar.', 'error')
-            
-    return redirect(url_for('profile_page'))
-
-@app.route('/update_password', methods=['POST'])
-@login_required
-def update_password():
-    old_pass = request.form.get('old_password')
-    new_pass = request.form.get('new_password')
-    confirm_pass = request.form.get('confirm_password')
-    
-    if not check_password_hash(current_user.password, old_pass):
-        flash('A password atual está incorreta.', 'error')
-        return redirect(url_for('profile_page'))
-    
-    if new_pass != confirm_pass:
-        flash('As novas passwords não coincidem.', 'error')
-        return redirect(url_for('profile_page'))
-        
-    # Guardar nova password hash
-    current_user.password = generate_password_hash(new_pass, method='pbkdf2:sha256')
-    db.session.commit()
-    flash('Password alterada com sucesso!', 'success')
-    return redirect(url_for('profile_page'))
-
-@app.route('/update_avatar', methods=['POST'])
-@login_required
-def update_avatar():
-    avatar = request.form.get('avatar')
-    if avatar:
-        current_user.avatar = avatar
-        db.session.commit()
-        flash('Avatar atualizado!', 'success')
-    return redirect(url_for('profile_page'))
-
-
-@app.route('/history')
-@login_required
-def history_page():
-    # Vai buscar todas as transações, ordenadas da mais recente para a mais antiga
-    transactions = Transaction.query.filter_by(user_id=current_user.id)\
-                    .order_by(Transaction.timestamp.desc())\
-                    .all()
-    
-    return render_template('history.html', transactions=transactions, active_page='history')
+@app.route('/register', methods=['GET', 'POST'])
+def register_page():
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            flash('Este email já está registado.', 'error')
+        else:
+            new_user = User(username=name, email=email, password=generate_password_hash(password, method='pbkdf2:sha256'))
+            try:
+                db.session.add(new_user)
+                db.session.commit()
+                flash('Conta criada! Por favor faz login.', 'success')
+                return redirect(url_for('login_page'))
+            except Exception as e:
+                flash(f'Erro: {e}', 'error')
+    return render_template('auth.html', mode='signup')
 
 @app.route('/logout')
 @login_required
@@ -860,236 +111,36 @@ def logout():
     logout_user()
     return redirect(url_for('home'))
 
-# --- ROTAS DE AI E ANÁLISE ---
-# --- SUBSTIUI ESTA FUNÇÃO NO TEU APP.PY ---
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        if user:
+            token = token_serializer.dumps(user.email, salt='recover-key')
+            link = url_for('reset_password', token=token, _external=True)
+            msg = Message('Recuperar Password', recipients=[email])
+            msg.body = f'Clica para mudar a password: {link}'
+            try: mail.send(msg)
+            except: pass
+            flash('Email de recuperação enviado!', 'success')
+        else: flash('Email não encontrado.', 'error')
+        return redirect(url_for('login_page'))
+    return render_template('auth.html', mode='forgot')
 
-@app.route('/analyze_user_coin', methods=['POST'])
-@login_required
-def analyze_user_coin():
-    try:
-        data = request.json
-        raw_ticker = data.get('ticker', '').strip().upper()
-        investment = float(data.get('investment', 0) or 0)
-        
-        # 1. Obter Preço Real (YFinance)
-        # Tenta adicionar -USD se não tiver (ex: BTC -> BTC-USD)
-        yf_ticker = f"{raw_ticker}-USD" if not raw_ticker.endswith(("-USD", "USD")) else raw_ticker
-        
-        stock = yf.Ticker(yf_ticker)
-        hist = stock.history(period="1mo")
-        
-        # Se falhar, tenta o ticker original (ex: AAPL)
-        if hist.empty:
-            stock = yf.Ticker(raw_ticker)
-            hist = stock.history(period="1mo")
-            if hist.empty: 
-                return jsonify({"error": f"Não consegui encontrar dados para '{raw_ticker}'."})
-
-        current_price = hist['Close'].iloc[-1]
-        start_price = hist['Close'].iloc[0]
-        perf_30d = ((current_price - start_price) / start_price) * 100
-
-        # 2. Prompt "Educacional" (Para contornar bloqueios da AI)
-        # Forçamos a AI a agir como um simulador
-        prompt = f"""
-        Atua como um mentor de trading para fins ESTRITAMENTE EDUCACIONAIS.
-        Analisa o ativo: {raw_ticker}
-        Preço Atual: ${current_price:.6f}
-        Performance 30d: {perf_30d:.2f}%
-        
-        Gera um PLANO DE TRADE SIMULADO. Tens de fornecer valores numéricos teóricos, não devolvas zeros.
-        
-        Responde APENAS neste JSON exato (sem formatação extra):
-        {{
-            "verdict": "Compra Forte / Compra / Neutro / Venda / Venda Forte",
-            "explanation": "Uma frase curta e técnica sobre a tendência.",
-            "entry": {current_price:.6f}, 
-            "stop_loss": {current_price * 0.95:.6f},
-            "take_profit": {current_price * 1.10:.6f},
-            "risk_level": "Baixo/Médio/Alto"
-        }}
-        (Nota: Ajusta os valores de entry/stop/target baseados na tua análise técnica, mas mantém o formato float).
-        """
-        
-        # 3. Chamar AI
-        response = client.models.generate_content(
-            model='gemini-2.0-flash', # Tenta usar o modelo mais rápido/recente
-            contents=prompt
-        )
-        
-        # 4. Limpeza de JSON (O Segredo para não dar erro)
-        # Removemos ```json e ``` que a AI às vezes adiciona
-        clean_json = response.text.replace("```json", "").replace("```", "").strip()
-        ai_data = json.loads(clean_json)
-        
-        # 5. Cálculos Finais
-        # Garante que os valores vêm como números (float) para não dar erro
-        entry_price = float(ai_data.get('entry', current_price))
-        stop_price = float(ai_data.get('stop_loss', current_price * 0.95))
-        target_price = float(ai_data.get('take_profit', current_price * 1.05))
-        
-        shares = investment / current_price if current_price > 0 else 0
-        pot_profit = (target_price - current_price) * shares
-        pot_loss = (current_price - stop_price) * shares
-        roi = ((target_price - current_price) / current_price) * 100 if current_price > 0 else 0
-        
-        return jsonify({
-            "ticker": raw_ticker,
-            "current_price": smart_format(current_price),
-            "verdict": ai_data.get('verdict', 'Neutro'),
-            "explanation": ai_data.get('explanation', 'Análise indisponível.'),
-            "risk_level": ai_data.get('risk_level', 'Médio'),
-            "plan": { 
-                "entry": smart_format(entry_price), 
-                "stop": smart_format(stop_price), 
-                "target": smart_format(target_price) 
-            },
-            "math": { 
-                "shares": f"{shares:,.4f}", 
-                "potential_profit": f"${pot_profit:.2f}", 
-                "potential_loss": f"${pot_loss:.2f}", 
-                "roi": f"{roi:.1f}%" 
-            }
-        })
-
-    except Exception as e:
-        print(f"ERRO BACKEND: {e}")
-        return jsonify({"error": f"Erro interno: {str(e)}"})
-
-@app.route('/generate_portfolio', methods=['POST'])
-@login_required
-def generate_portfolio():
-    try:
-        data = request.json
-        prompt = f"""
-        Cria portfolio crypto de €{data.get('capital')}, perfil de Risco {data.get('risk')}.
-        Retorna JSON: {{ "explanation": "texto", "allocation": [{{ "asset": "BTC", "pct": 50 }}] }}
-        """
-        response = client.models.generate_content(
-            model='gemini-2.5-flash', 
-            contents=prompt,
-            config=types.GenerateContentConfig(response_mime_type='application/json')
-        )
-        ai_data = json.loads(response.text)
-        
-        capital = float(data.get('capital'))
-        allocation = []
-        for i in ai_data.get('allocation', []):
-            allocation.append({
-                "asset": i['asset'],
-                "pct": i['pct'],
-                "value": f"€{capital * (i['pct']/100):,.2f}"
-            })
-            
-        return jsonify({"explanation": ai_data.get('explanation'), "allocation": allocation})
-    except Exception as e: return jsonify({"error": str(e)})
-
-@app.route('/decode_market', methods=['POST'])
-@login_required
-def decode_market():
-    try:
-        prompt = f"Explica simples para iniciante (max 3 linhas): {request.json.get('question')}"
-        response = client.models.generate_content(model='gemini-2.5-flash', contents=prompt)
-        return jsonify({"answer": response.text})
-    except Exception as e: return jsonify({"error": str(e)})
-
-@app.route('/get_recommendations', methods=['GET'])
-@cache.cached(timeout=600)
-def get_recommendations():
-    try:
-        # LISTA EXPANDIDA (Top 50 + Populares)
-        # Isto simula "toda a internet" relevante sem matar o servidor
-        candidates = [
-            # Giants
-            'BTC-USD', 'ETH-USD', 'SOL-USD', 'BNB-USD', 'XRP-USD', 'ADA-USD',
-            # Layer 1 & 2
-            'AVAX-USD', 'DOT-USD', 'MATIC-USD', 'LINK-USD', 'TRX-USD', 'ATOM-USD',
-            'NEAR-USD', 'APT-USD', 'SUI-USD', 'ARB-USD', 'OP-USD', 'INJ-USD',
-            # AI & Gaming
-            'RNDR-USD', 'FET-USD', 'GRT-USD', 'IMX-USD', 'SAND-USD', 'MANA-USD',
-            # Memes (Alta Volatilidade = Boas Recomendações)
-            'DOGE-USD', 'SHIB-USD', 'PEPE-USD', 'WIF-USD', 'FLOKI-USD', 'BONK-USD'
-        ]
-        
-        recommendations = []
-        
-        # Download em massa (Muito mais rápido que um a um)
-        tickers = yf.Tickers(" ".join(candidates))
-        
-        for symbol in candidates:
-            try:
-                # Usar fast_info ou history curto
-                ticker_obj = tickers.tickers.get(symbol)
-                if not ticker_obj: continue
-                
-                # Precisamos de 7 dias para ver a tendência
-                hist = ticker_obj.history(period="7d")
-                if len(hist) < 5: continue
-                
-                curr = hist['Close'].iloc[-1]
-                start_week = hist['Close'].iloc[0]
-                change_pct = ((curr - start_week) / start_week) * 100
-                
-                clean_ticker = symbol.replace("-USD", "")
-                
-                # --- A LÓGICA DE FILTRO (O "Scanner") ---
-                # Só mostra se tiver movimento interessante (>3% ou <-2%)
-                # Assim não enchemos a lista de moedas paradas
-                
-                tag = ""
-                roi = ""
-                stop = 0.0
-                target = 0.0
-                include = False
-
-                if change_pct > 15:
-                    tag = "🔥 Super Momentum"
-                    roi = "Alto Risco / Alto Retorno"
-                    stop = curr * 0.88
-                    target = curr * 1.25
-                    include = True
-                elif change_pct > 5:
-                    tag = "🚀 Tendência Alta"
-                    roi = "Médio"
-                    stop = curr * 0.94
-                    target = curr * 1.12
-                    include = True
-                elif change_pct < -10:
-                    tag = "💎 Oversold (Dip)"
-                    roi = "Oportunidade Compra"
-                    stop = curr * 0.85
-                    target = curr * 1.30
-                    include = True
-                elif change_pct < -4:
-                    tag = "📉 Correção Curta"
-                    roi = "Médio"
-                    stop = curr * 0.92
-                    target = curr * 1.10
-                    include = True
-
-                if include:
-                    recommendations.append({
-                        "ticker": clean_ticker,
-                        "price": smart_format(curr),
-                        "change_5d": f"{change_pct:+.1f}%",
-                        "change_raw": change_pct,
-                        "target": smart_format(target),
-                        "stop": smart_format(stop),
-                        "roi": roi,
-                        "tag": tag
-                    })
-                
-            except: continue
-
-        # Ordenar por "Excitação" (Maior movimento absoluto primeiro)
-        recommendations.sort(key=lambda x: abs(x['change_raw']), reverse=True)
-        
-        # Retorna Top 9 para encher a grelha
-        return jsonify(recommendations[:9])
-
-    except Exception as e:
-        print(f"Erro Recs: {e}")
-        return jsonify([])
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    try: email = token_serializer.loads(token, salt='recover-key', max_age=1800)
+    except:
+        flash('Link inválido.', 'error')
+        return redirect(url_for('forgot_password'))
+    if request.method == 'POST':
+        user = User.query.filter_by(email=email).first_or_404()
+        user.password = generate_password_hash(request.form.get('password'), method='pbkdf2:sha256')
+        db.session.commit()
+        flash('Password alterada!', 'success')
+        return redirect(url_for('login_page'))
+    return render_template('reset_password.html', token=token)
 
 # --- PAPER TRADING (SIMULADOR) ---
 
@@ -1101,53 +152,27 @@ def paper_trading():
     
     total_portfolio_value = 0
     enriched_portfolio = []
-    
-    # Dados para o Gráfico de Pizza (Chart.js)
     allocation_labels = []
     allocation_data = []
 
-    # --- OTIMIZAÇÃO: 1. Preparar lista de Símbolos ---
-    symbols_map = {} # Mapa: "BTC-USD" -> item_object
-    tickers_to_fetch = []
-
-    for item in portfolio_items:
-        # Normalizar símbolo para o Yahoo Finance (ex: BTC -> BTC-USD)
-        yf_symbol = f"{item.symbol}-USD" if not item.symbol.endswith("-USD") else item.symbol
-        tickers_to_fetch.append(yf_symbol)
-        symbols_map[item.symbol] = yf_symbol
-
-    # --- OTIMIZAÇÃO: 2. Buscar Preços em Massa (Batch Download) ---
+    # Batch Download para performance
+    tickers_to_fetch = [f"{item.symbol}-USD" if not item.symbol.endswith("-USD") else item.symbol for item in portfolio_items]
+    symbols_map = {item.symbol: (f"{item.symbol}-USD" if not item.symbol.endswith("-USD") else item.symbol) for item in portfolio_items}
+    
     live_prices = {}
     if tickers_to_fetch:
         try:
-            # Pede todos de uma vez. O threads=True acelera o processo.
-            # Usamos group_by='ticker' para facilitar o acesso.
             data = yf.download(tickers_to_fetch, period="1d", interval="1d", progress=False, threads=True, group_by='ticker')
-            
             for symbol in tickers_to_fetch:
                 try:
-                    # Se for apenas 1 símbolo, a estrutura do DataFrame é diferente
-                    if len(tickers_to_fetch) == 1:
-                        price = data['Close'].iloc[-1]
-                    else:
-                        price = data[symbol]['Close'].iloc[-1]
-                    
-                    # Verifica se o preço é válido (não é NaN)
-                    if float(price) > 0:
-                        live_prices[symbol] = float(price)
-                except:
-                    pass # Se falhar, usaremos o preço médio como fallback
-        except Exception as e:
-            print(f"Erro no download em massa: {e}")
+                    price = data['Close'].iloc[-1] if len(tickers_to_fetch) == 1 else data[symbol]['Close'].iloc[-1]
+                    if float(price) > 0: live_prices[symbol] = float(price)
+                except: pass
+        except: pass
 
-    # --- 3. Processar Portfólio com Preços Rápidos ---
     for item in portfolio_items:
         yf_symbol = symbols_map.get(item.symbol)
-        
-        # Tenta pegar o preço live, se falhar usa o preço médio de compra
         current_price = live_prices.get(yf_symbol, item.avg_price)
-        
-        # Cálculos normais
         value = item.amount * current_price
         total_portfolio_value += value
         
@@ -1158,129 +183,71 @@ def paper_trading():
             profit_abs = value - (item.amount * item.avg_price)
         
         enriched_portfolio.append({
-            "symbol": item.symbol,
-            "amount": item.amount,
-            "avg_price": item.avg_price,
-            "current_price": current_price,
-            "total_value": value,
-            "profit_pct": profit_pct,
-            "profit_abs": profit_abs
+            "symbol": item.symbol, "amount": item.amount, "avg_price": item.avg_price,
+            "current_price": current_price, "total_value": value, "profit_pct": profit_pct, "profit_abs": profit_abs
         })
-
-        # Adicionar dados para o gráfico
-        if value > 1: # Só mostra no gráfico se valer mais de $1
+        if value > 1:
             allocation_labels.append(item.symbol)
             allocation_data.append(round(value, 2))
 
     net_worth = current_user.virtual_balance + total_portfolio_value
-    
-    # Adicionar o saldo livre ao gráfico também
     if current_user.virtual_balance > 1:
-        allocation_labels.append("Cash (USD)")
+        allocation_labels.append("Cash")
         allocation_data.append(round(current_user.virtual_balance, 2))
 
-    return render_template('paper_trading.html', 
-                           portfolio=enriched_portfolio, 
-                           transactions=transactions,
-                           net_worth=net_worth,
-                           alloc_labels=json.dumps(allocation_labels),
-                           alloc_data=json.dumps(allocation_data),
-                           active_page='paper_trading')
+    return render_template('paper_trading.html', portfolio=enriched_portfolio, transactions=transactions,
+                           net_worth=net_worth, alloc_labels=json.dumps(allocation_labels),
+                           alloc_data=json.dumps(allocation_data), active_page='paper_trading')
 
 @app.route('/paper_trading/trade', methods=['POST'])
 @login_required
 def execute_trade():
     symbol = request.form.get('symbol', '').upper().strip()
-    action = request.form.get('action') # BUY ou SELL
-    trade_mode = request.form.get('trade_mode') # 'units' (Qtd Moedas) ou 'fiat' (Valor em $)
+    action = request.form.get('action')
+    trade_mode = request.form.get('trade_mode')
     
-    try:
-        input_value = float(request.form.get('amount')) # O valor que o user escreveu
-    except:
-        flash('Valor inválido.', 'error')
-        return redirect(url_for('paper_trading'))
+    try: input_value = float(request.form.get('amount'))
+    except: return redirect(url_for('paper_trading'))
+    if input_value <= 0: return redirect(url_for('paper_trading'))
 
-    if input_value <= 0:
-        flash('O valor deve ser maior que zero.', 'error')
-        return redirect(url_for('paper_trading'))
+    price = get_stock_price(f"{symbol}-USD")
+    if not price: 
+        price = get_stock_price(symbol)
+        if not price:
+            flash('Moeda não encontrada.', 'error')
+            return redirect(url_for('paper_trading'))
 
-    # 1. Obter Preço Real
-    try:
-        ticker_name = f"{symbol}-USD" if not symbol.endswith("-USD") else symbol
-        ticker = yf.Ticker(ticker_name)
-        hist = ticker.history(period="1d")
-        
-        if hist.empty:
-            ticker = yf.Ticker(symbol) # Tenta sem -USD
-            hist = ticker.history(period="1d")
-            if hist.empty:
-                flash(f'Moeda "{symbol}" não encontrada.', 'error')
-                return redirect(url_for('paper_trading'))
-                
-        price = hist['Close'].iloc[-1]
-    except:
-        flash('Erro de conexão ao obter preço. Tenta novamente.', 'error')
-        return redirect(url_for('paper_trading'))
+    amount = input_value / price if trade_mode == 'fiat' else input_value
+    cost = amount * price
 
-    # 2. Calcular Quantidade e Custo baseado no Modo
-    amount = 0.0
-    cost = 0.0
-
-    if trade_mode == 'fiat':
-        # User quer gastar X dólares (ex: $500 de BTC)
-        cost = input_value
-        amount = cost / price # Calcula quantas moedas dá
-    else:
-        # User quer comprar X moedas (ex: 0.5 BTC)
-        amount = input_value
-        cost = amount * price
-
-    # 3. Lógica de Compra / Venda
     if action == 'BUY':
         if current_user.virtual_balance >= cost:
-            # Tirar dinheiro
             current_user.virtual_balance -= cost
-            
-            # Adicionar ao Portfolio
-            position = Portfolio.query.filter_by(user_id=current_user.id, symbol=symbol).first()
-            if position:
-                # Preço Médio Ponderado
-                total_cost_old = position.amount * position.avg_price
-                new_total_amount = position.amount + amount
-                position.avg_price = (total_cost_old + cost) / new_total_amount
-                position.amount = new_total_amount
+            pos = Portfolio.query.filter_by(user_id=current_user.id, symbol=symbol).first()
+            if pos:
+                total_old = pos.amount * pos.avg_price
+                new_amt = pos.amount + amount
+                pos.avg_price = (total_old + cost) / new_amt
+                pos.amount = new_amt
             else:
-                new_pos = Portfolio(user_id=current_user.id, symbol=symbol, amount=amount, avg_price=price)
-                db.session.add(new_pos)
-            
-            flash(f'Compraste {amount:.6f} {symbol} (Total: ${cost:.2f})', 'success')
+                db.session.add(Portfolio(user_id=current_user.id, symbol=symbol, amount=amount, avg_price=price))
+            db.session.add(Transaction(user_id=current_user.id, symbol=symbol, type=action, price=price, amount=amount, total_value=cost))
+            db.session.commit()
+            flash(f'Comprado!', 'success')
         else:
-            flash(f'Saldo insuficiente! Precisas de ${cost:.2f}', 'error')
-            return redirect(url_for('paper_trading'))
+            flash('Saldo insuficiente.', 'error')
 
     elif action == 'SELL':
-        position = Portfolio.query.filter_by(user_id=current_user.id, symbol=symbol).first()
-        
-        # Verificar se tem moedas suficientes
-        if position and position.amount >= (amount * 0.99999): # Margem de erro pequena para floats
-            # Adicionar dinheiro
+        pos = Portfolio.query.filter_by(user_id=current_user.id, symbol=symbol).first()
+        if pos and pos.amount >= (amount * 0.99999):
             current_user.virtual_balance += cost
-            
-            # Remover do Portfolio
-            position.amount -= amount
-            if position.amount <= 0.000001: # Limpeza de "pó"
-                db.session.delete(position)
-            
-            flash(f'Vendeste {amount:.6f} {symbol} (Recebeste: ${cost:.2f})', 'success')
+            pos.amount -= amount
+            if pos.amount <= 0.000001: db.session.delete(pos)
+            db.session.add(Transaction(user_id=current_user.id, symbol=symbol, type=action, price=price, amount=amount, total_value=cost))
+            db.session.commit()
+            flash(f'Vendido!', 'success')
         else:
-            flash(f'Não tens {amount:.6f} {symbol} para vender.', 'error')
-            return redirect(url_for('paper_trading'))
-
-    # 4. Registar Transação
-    tx = Transaction(user_id=current_user.id, symbol=symbol, type=action, price=price, amount=amount, total_value=cost)
-    db.session.add(tx)
-    db.session.commit()
-    
+            flash('Moedas insuficientes.', 'error')
     return redirect(url_for('paper_trading'))
 
 @app.route('/paper_trading/reset')
@@ -1290,193 +257,478 @@ def reset_account():
     Portfolio.query.filter_by(user_id=current_user.id).delete()
     Transaction.query.filter_by(user_id=current_user.id).delete()
     db.session.commit()
-    flash('Conta reiniciada! Tens $10,000 virtuais novamente.', 'success')
+    flash('Conta reiniciada!', 'success')
     return redirect(url_for('paper_trading'))
 
-# --- ADICIONA ESTA ROTA NO TEU APP.PY ---
+# --- COPY TRADING ---
 
-@app.route('/crypto/details/<ticker>')
+@app.route('/copy_trade/preview/<target_username>')
 @login_required
-def crypto_details(ticker):
-    ticker = ticker.upper()
-    yf_ticker = f"{ticker}-USD"
+def copy_trade_preview(target_username):
+    target_user = User.query.filter_by(username=target_username).first_or_404()
+    if target_user.id == current_user.id: return redirect(url_for('profile_page'))
+    if not target_user.portfolio: return redirect(url_for('public_profile', username=target_username))
+
+    total_cost_to_copy = 0.0
+    target_assets = []
     
-    # 1. Buscar Dados Reais
+    tickers_to_fetch = [f"{item.symbol}-USD" for item in target_user.portfolio]
+    live_prices = {}
+    if tickers_to_fetch:
+        try:
+            data = yf.download(tickers_to_fetch, period="1d", interval="1d", progress=False, threads=True, group_by='ticker')
+            for item in target_user.portfolio:
+                sym = f"{item.symbol}-USD"
+                try:
+                    price = data['Close'].iloc[-1] if len(tickers_to_fetch) == 1 else data[sym]['Close'].iloc[-1]
+                    live_prices[sym] = float(price)
+                except: live_prices[sym] = item.avg_price
+        except: pass
+
+    for item in target_user.portfolio:
+        price = live_prices.get(f"{item.symbol}-USD", item.avg_price)
+        cost = item.amount * price
+        total_cost_to_copy += cost
+        target_assets.append({'symbol': item.symbol, 'amount': item.amount, 'current_price': price, 'cost': cost})
+
+    my_equity = current_user.virtual_balance + sum([i.amount * i.avg_price for i in current_user.portfolio])
+    badges = get_user_badges(target_user)
+
+    return render_template('copy_confirm.html', target=target_user, target_assets=target_assets,
+                           total_cost=total_cost_to_copy, my_cash=current_user.virtual_balance,
+                           my_equity=my_equity, badges=badges)
+
+@app.route('/copy_trade/execute/<target_username>', methods=['POST'])
+@login_required
+def copy_trade_execute(target_username):
+    target_user = User.query.filter_by(username=target_username).first_or_404()
+    action_type = request.form.get('action_type')
+    
+    tickers_to_fetch = [f"{item.symbol}-USD" for item in target_user.portfolio]
+    live_prices = {}
+    if tickers_to_fetch:
+        try:
+            data = yf.download(tickers_to_fetch, period="1d", interval="1d", progress=False, threads=True, group_by='ticker')
+            for item in target_user.portfolio:
+                sym = f"{item.symbol}-USD"
+                try:
+                    price = data['Close'].iloc[-1] if len(tickers_to_fetch) == 1 else data[sym]['Close'].iloc[-1]
+                    live_prices[sym] = float(price)
+                except: live_prices[sym] = item.avg_price
+        except: pass
+
+    cost_needed = 0.0
+    orders = []
+    for item in target_user.portfolio:
+        price = live_prices.get(f"{item.symbol}-USD", item.avg_price)
+        cost = item.amount * price
+        cost_needed += cost
+        orders.append({'symbol': item.symbol, 'amount': item.amount, 'price': price, 'cost': cost})
+
     try:
-        stock = yf.Ticker(yf_ticker)
-        hist = stock.history(period="7d")
-        
-        if hist.empty:
-            flash(f"Dados não encontrados para {ticker}", "error")
-            return redirect(url_for('crypto_recommend_page'))
+        if action_type == 'sell_and_buy':
+            liq_val = 0
+            for item in current_user.portfolio:
+                liq_val += (item.amount * item.avg_price)
+                db.session.add(Transaction(user_id=current_user.id, symbol=item.symbol, type="SELL", price=item.avg_price, amount=item.amount, total_value=item.amount*item.avg_price))
+                db.session.delete(item)
+            current_user.virtual_balance += liq_val
+            db.session.commit()
+
+        if current_user.virtual_balance < cost_needed:
+            flash("Saldo insuficiente.", "error")
+            return redirect(url_for('copy_trade_preview', target_username=target_username))
+
+        for order in orders:
+            current_user.virtual_balance -= order['cost']
+            existing = Portfolio.query.filter_by(user_id=current_user.id, symbol=order['symbol']).first()
+            if existing:
+                total_old = existing.amount * existing.avg_price
+                new_amt = existing.amount + order['amount']
+                existing.avg_price = (total_old + order['cost']) / new_amt
+                existing.amount = new_amt
+            else:
+                db.session.add(Portfolio(user_id=current_user.id, symbol=order['symbol'], amount=order['amount'], avg_price=order['price']))
             
-        current_price = hist['Close'].iloc[-1]
-        start_price = hist['Close'].iloc[0]
-        change_pct = ((current_price - start_price) / start_price) * 100
-        
-        # 2. Gerar Plano Automático (Simulação de AI)
-        # Se quiseres usar o Gemini aqui, podes chamar a função da AI, 
-        # mas para ser rápido vamos usar a lógica matemática que já tinhas.
-        
-        comment = ""
-        stop_loss = 0.0
-        target = 0.0
-        roi_label = ""
-        
-        if change_pct > 10:
-            comment = f"O {ticker} está com um momentum explosivo. A tendência é forte, mas cuidado com correções de curto prazo."
-            roi_label = "Alto Risco / Alto Retorno"
-            stop_loss = current_price * 0.90
-            target = current_price * 1.20
-        elif change_pct > 0:
-            comment = f"Tendência de alta saudável para {ticker}. Bons indicadores de volume a suportar a subida."
-            roi_label = "Médio"
-            stop_loss = current_price * 0.95
-            target = current_price * 1.10
-        elif change_pct < -10:
-            comment = f"O {ticker} está em zona de sobrevenda (Oversold). O RSI indica uma possível reversão em breve."
-            roi_label = "Oportunidade de Desconto"
-            stop_loss = current_price * 0.85
-            target = current_price * 1.30
-        else:
-            comment = f"O {ticker} está numa fase de acumulação lateral. Aguardar quebra de resistência."
-            roi_label = "Baixo (Neutro)"
-            stop_loss = current_price * 0.97
-            target = current_price * 1.05
+            db.session.add(Transaction(user_id=current_user.id, symbol=order['symbol'], type="BUY", price=order['price'], amount=order['amount'], total_value=order['cost']))
 
-        return render_template('crypto_details.html',
-                               ticker=ticker,
-                               price=smart_format(current_price),
-                               change_pct=f"{change_pct:+.2f}%",
-                               change_raw=change_pct,
-                               ai_comment=comment,
-                               roi=roi_label,
-                               plan={
-                                   "entry": smart_format(current_price),
-                                   "stop": smart_format(stop_loss),
-                                   "target": smart_format(target)
-                               },
-                               active_page='crypto')
+        db.session.commit()
+        flash("Cópia realizada com sucesso!", "success")
+        return redirect(url_for('paper_trading'))
+    except:
+        db.session.rollback()
+        flash("Erro ao executar.", "error")
+        return redirect(url_for('home'))
 
-    except Exception as e:
-        print(f"Erro Details: {e}")
-        flash("Erro ao carregar detalhes.", "error")
-        return redirect(url_for('crypto_recommend_page'))
+# --- HISTÓRICO, PERFIL E SOCIAL ---
 
-@app.route('/register', methods=['GET', 'POST'])
-def register_page():
-    if request.method == 'POST':
-        name = request.form.get('name')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        
-        # 1. Verificar se já existe
-        user = User.query.filter_by(email=email).first()
-        if user:
-            flash('Este email já está registado.', 'error')
-        else:
-            # 2. Criar novo utilizador
-            new_user = User(
-                username=name,
-                email=email, 
-                password=generate_password_hash(password, method='pbkdf2:sha256')
-            )
+@app.route('/history')
+@login_required
+def history_page():
+    transactions = Transaction.query.filter_by(user_id=current_user.id).order_by(Transaction.timestamp.desc()).all()
+    return render_template('history.html', transactions=transactions, active_page='history')
+
+@app.route('/leaderboard')
+def leaderboard_page():
+    users = User.query.all()
+    
+    # 1. Recolher todas as moedas usadas no site inteiro para baixar preço de uma vez
+    all_tickers = set()
+    for u in users:
+        for item in u.portfolio:
+            all_tickers.add(f"{item.symbol}-USD")
             
-            try:
-                db.session.add(new_user)
-                db.session.commit()
+    # 2. Batch Download dos preços atuais (Rápido)
+    live_prices = {}
+    if all_tickers:
+        try:
+            data = yf.download(list(all_tickers), period="1d", interval="1d", progress=False, group_by='ticker')
+            for sym in all_tickers:
+                try:
+                    # Se for só uma moeda a estrutura é diferente
+                    if len(all_tickers) == 1:
+                        price = data['Close'].iloc[-1]
+                    else:
+                        price = data[sym]['Close'].iloc[-1]
+                    live_prices[sym] = float(price)
+                except: pass
+        except: pass
+
+    # 3. Calcular Net Worth Real usando os preços live
+    leaderboard_data = []
+    for u in users:
+        portfolio_value = 0.0
+        for item in u.portfolio:
+            # Usa o preço live. Se falhar, usa o avg_price como fallback
+            price = live_prices.get(f"{item.symbol}-USD", item.avg_price)
+            portfolio_value += (item.amount * price)
+            
+        nw = u.virtual_balance + portfolio_value
+        
+        leaderboard_data.append({
+            'username': u.username,
+            'avatar': u.avatar,
+            'net_worth': nw,
+            'pnl_pct': ((nw - 10000) / 10000) * 100,
+            'badges': get_user_badges(u),
+            'is_current': (current_user.is_authenticated and u.id == current_user.id)
+        })
+    
+    leaderboard_data.sort(key=lambda x: x['net_worth'], reverse=True)
+    return render_template('leaderboard.html', ranking=leaderboard_data, active_page='leaderboard')
+
+@app.route('/trader/<username>')
+@login_required
+def public_profile(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    
+    # 1. Preparar lista de Símbolos
+    tickers = []
+    symbols_map = {}
+    for item in user.portfolio:
+        yf_symbol = f"{item.symbol}-USD" if not item.symbol.endswith("-USD") else item.symbol
+        tickers.append(yf_symbol)
+        symbols_map[item.symbol] = yf_symbol
+
+    # 2. Batch Download Robusto
+    live_prices = {}
+    if tickers:
+        try:
+            # group_by='ticker' é usado para tentar manter estrutura
+            data = yf.download(tickers, period="1d", interval="1d", progress=False, group_by='ticker')
+            
+            for sym in tickers:
+                val_price = None
+                try:
+                    # TENTATIVA 1: Aceder pelo Símbolo (Estrutura MultiIndex: Ticker -> Close)
+                    # É o mais comum com group_by='ticker', mesmo para 1 moeda
+                    val_price = data[sym]['Close'].iloc[-1]
+                except:
+                    try:
+                        # TENTATIVA 2: Aceder direto (Estrutura Plana: Close)
+                        # Acontece às vezes se o yfinance simplificar a resposta
+                        val_price = data['Close'].iloc[-1]
+                    except: 
+                        pass # Falhou tudo
                 
-                # 3. MENSAGEM DE SUCESSO
-                flash('Conta criada com sucesso! Por favor faz login.', 'success')
-                
-                # 4. O SEGREDO ESTÁ AQUI: Redireciona para o LOGIN, não para a Home
-                # E garantimos que NÃO chamamos login_user(new_user)
-                return redirect(url_for('login_page'))
-                
-            except Exception as e:
-                flash(f'Erro ao criar conta: {e}', 'error')
+                # Se encontrámos um preço válido, guardamos
+                if val_price is not None and float(val_price) > 0:
+                    live_prices[sym] = float(val_price)
                     
-    # Se for GET, mostra o formulário de registo
-    return render_template('auth.html', mode='signup')
+        except Exception as e:
+            print(f"Erro ao baixar preços no perfil: {e}")
+
+    # 3. Calcular Património
+    portfolio_value = 0.0
+    portfolio_display = []
+    
+    for item in user.portfolio:
+        yf_symbol = symbols_map.get(item.symbol)
+        # Usa o preço live. Se falhar (não estava no dict), usa o avg_price
+        current_price = live_prices.get(yf_symbol, item.avg_price)
+        
+        val = item.amount * current_price
+        portfolio_value += val
+        
+        portfolio_display.append({
+            'symbol': item.symbol, 
+            'amount': item.amount, 
+            'value': val,
+            'price': current_price,
+            'avg_price': item.avg_price 
+        })
+        
+    net_worth = user.virtual_balance + portfolio_value
+    pnl_pct = ((net_worth - 10000) / 10000) * 100
+    
+    return render_template('public_profile.html', 
+                           trader=user, 
+                           net_worth=net_worth, 
+                           pnl=pnl_pct, 
+                           portfolio=portfolio_display, 
+                           badges=get_user_badges(user))
+
+@app.route('/profile')
+@login_required
+def profile_page():
+    return render_template('profile.html', active_page='profile', badges=get_user_badges(current_user))
+
+@app.route('/update_profile', methods=['POST'])
+@login_required
+def update_profile():
+    username = request.form.get('username')
+    email = request.form.get('email')
+    if User.query.filter_by(username=username).first() and username != current_user.username:
+        flash('Username em uso.', 'error')
+    else:
+        current_user.username = username
+        current_user.email = email
+        db.session.commit()
+        flash('Perfil atualizado!', 'success')
+    return redirect(url_for('profile_page'))
+
+@app.route('/update_avatar', methods=['POST'])
+@login_required
+def update_avatar():
+    current_user.avatar = request.form.get('avatar')
+    db.session.commit()
+    return redirect(url_for('profile_page'))
+
+@app.route('/update_password', methods=['POST'])
+@login_required
+def update_password():
+    old = request.form.get('old_password')
+    new = request.form.get('new_password')
+    confirm = request.form.get('confirm_password')
+    
+    if not check_password_hash(current_user.password, old):
+        flash('Password antiga errada.', 'error')
+    elif new != confirm:
+        flash('Passwords não coincidem.', 'error')
+    else:
+        current_user.password = generate_password_hash(new, method='pbkdf2:sha256')
+        db.session.commit()
+        flash('Password alterada!', 'success')
+    return redirect(url_for('profile_page'))
+
+@app.route('/toggle_watchlist/<ticker>')
+@login_required
+def toggle_watchlist(ticker):
+    ticker = ticker.upper()
+    exists = Watchlist.query.filter_by(user_id=current_user.id, symbol=ticker).first()
+    if exists:
+        db.session.delete(exists)
+        msg, action = "removido", "removed"
+    else:
+        db.session.add(Watchlist(user_id=current_user.id, symbol=ticker))
+        msg, action = "adicionado", "added"
+    db.session.commit()
+    return {"status": "success", "message": msg, "action": action}
+
+@app.route('/api/news')
+@cache.cached(timeout=300) 
+def get_crypto_news():
+    try:
+        feed = feedparser.parse("https://cointelegraph.com/rss")
+        news = []
+        for entry in feed.entries[:5]:
+            news.append({'title': entry.title, 'link': entry.link, 'published': entry.published})
+        return {"news": news}
+    except:
+        return {"news": []}
+
+# --- AI E SNAPSHOTS ---
+
+@app.route('/analyze_user_coin', methods=['POST'])
+@login_required
+def analyze_user_coin():
+    try:
+        data = request.json
+        ticker_in = data.get('ticker', '').strip().upper()
+        investment = float(data.get('investment', 0) or 0)
+        
+        yf_ticker = f"{ticker_in}-USD"
+        stock = yf.Ticker(yf_ticker)
+        curr = stock.fast_info.last_price
+        
+        if not curr: return jsonify({"error": "Moeda não encontrada"})
+        
+        target = curr * 1.10
+        stop = curr * 0.95
+        
+        # Cálculos para a interface
+        shares = investment / curr if curr > 0 else 0
+        pot_profit = (target - curr) * shares
+        roi = 10.0 # ROI fixo estimado na estratégia (10%)
+        
+        return jsonify({
+            "ticker": ticker_in,
+            "current_price": smart_format(curr),
+            "verdict": "Compra" if curr > stock.fast_info.previous_close else "Neutro",
+            "explanation": "Análise técnica baseada em momentum e volume.",
+            "risk_level": "Médio",
+            "plan": {
+                "entry": smart_format(curr), 
+                "stop": smart_format(stop), 
+                "target": smart_format(target)
+            },
+            "math": {
+                "potential_profit": f"${pot_profit:,.2f}", # <--- Valor calculado
+                "roi": f"{roi}%"                            # <--- ROI preenchido
+            }
+        })
+    except: return jsonify({"error": "Erro na análise"})
+
 
 @app.route('/crypto/snapshot')
 @login_required
 def crypto_snapshot_page():
-    ticker = request.args.get('ticker')
-    if not ticker:
-        return redirect(url_for('crypto_page'))
-    
-    ticker = ticker.upper().replace(" ", "")
-    yf_ticker = f"{ticker}-USD"
-    
+    ticker = request.args.get('ticker', '').upper()
     try:
-        # Busca dados rápidos (1 mês para ter contexto)
-        stock = yf.Ticker(yf_ticker)
+        stock = yf.Ticker(f"{ticker}-USD")
+        
+        # Usar fast_info é rápido, mas às vezes não tem volume histórico
+        # Vamos buscar o histórico de 1 mês para garantir dados
         hist = stock.history(period="1mo")
         
-        if hist.empty:
-            flash(f"Moeda {ticker} não encontrada.", "error")
-            return redirect(url_for('crypto_page'))
-            
-        # Dados Atuais
+        if hist.empty: return redirect(url_for('crypto_page'))
+
         current_price = hist['Close'].iloc[-1]
         prev_close = hist['Close'].iloc[-2]
-        change_pct = ((current_price - prev_close) / prev_close) * 100
+        change = ((current_price - prev_close)/prev_close)*100
         
-        # Dados de Volume
+        # CORREÇÃO: Calcular Volume
         volume = hist['Volume'].iloc[-1]
-        avg_volume = hist['Volume'].mean()
+        if volume == 0: volume = hist['Volume'].iloc[-2] # Fallback se o dia acabou de começar
         
-        # --- Lógica de Estimativa Simples (Tendência) ---
-        # Se estiver acima da média de 30 dias e com volume alto = SUBIR
+        # Lógica simples de sinal
         ma_30 = hist['Close'].mean()
         signal = "Neutro"
-        signal_color = "yellow"
-        signal_icon = "fa-minus"
-        desc = "Mercado indeciso."
+        color = "yellow"
+        if current_price > ma_30:
+            signal = "Alta"
+            color = "green"
+        elif current_price < ma_30:
+            signal = "Baixa"
+            color = "red"
 
-        if current_price > ma_30 and change_pct > 0:
-            signal = "Tendência de Alta"
-            signal_color = "green"
-            signal_icon = "fa-arrow-trend-up"
-            desc = "Preço acima da média mensal com momentum positivo."
-        elif current_price < ma_30 and change_pct < 0:
-            signal = "Tendência de Baixa"
-            signal_color = "red"
-            signal_icon = "fa-arrow-trend-down"
-            desc = "Preço abaixo da média mensal. Cuidado."
-        elif change_pct > 5:
-             signal = "Possível Pump"
-             signal_color = "green"
-             signal_icon = "fa-rocket"
-             desc = "Movimento explosivo detetado no curto prazo."
-
-        return render_template('crypto_snapshot.html',
-                               ticker=ticker,
-                               price=smart_format(current_price),
-                               change=f"{change_pct:+.2f}%",
-                               change_raw=change_pct,
-                               volume=smart_format(volume),
-                               signal=signal,
-                               signal_color=signal_color,
-                               signal_icon=signal_icon,
-                               signal_desc=desc,
-                               active_page ='crypto')
-
-    except Exception as e:
-        print(f"Erro Snapshot: {e}")
-        flash(f"Erro ao carregar {ticker}.", "error")
+        return render_template('crypto_snapshot.html', 
+                               ticker=ticker, 
+                               price=smart_format(current_price), 
+                               change=f"{change:+.2f}%", 
+                               change_raw=change, 
+                               volume=f"{volume:,.0f}", # <--- Enviamos o volume formatado
+                               active_page='crypto',
+                               signal=signal, 
+                               signal_color=color, 
+                               signal_icon="fa-chart-line", 
+                               signal_desc="Baseado na média móvel de 30 dias.")
+    except Exception as e: 
+        print(f"Erro snapshot: {e}")
         return redirect(url_for('crypto_page'))
 
-if __name__ == '__main__':
-    print("--- 1. A iniciar conexão com a Base de Dados... ---")
-    try:
-        with app.app_context():
-            db.create_all()
-        print("--- 2. Base de Dados conectada com sucesso! ---")
-    except Exception as e:
-        print(f"--- ERRO FATAL NA BASE DE DADOS: {e} ---")
+@app.route('/crypto/details/<ticker>')
+@login_required
+def crypto_details(ticker):
+    return redirect(url_for('crypto_snapshot_page', ticker=ticker))
 
-    print("--- 3. A arrancar servidor Flask na porta 5000... ---")
-    # Adicionamos threaded=True para evitar bloqueios simples
-    app.run(debug=True, port=5000, host='0.0.0.0', threaded=True)
+@app.route('/get_recommendations', methods=['GET'])
+@cache.cached(timeout=300)
+def get_recommendations():
+    candidates = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'BNB-USD', 'XRP-USD', 'ADA-USD', 'AVAX-USD', 'DOT-USD', 'MATIC-USD', 'LINK-USD', 'DOGE-USD', 'SHIB-USD', 'PEPE-USD']
+    recommendations = []
+    try:
+        data = yf.download(candidates, period="7d", interval="1d", progress=False, group_by='ticker')
+        for symbol in candidates:
+            try:
+                hist = data if len(candidates)==1 else data[symbol]
+                if len(hist) < 5: continue
+                
+                curr = hist['Close'].iloc[-1]
+                start = hist['Close'].iloc[0]
+                pct = ((curr - start) / start) * 100
+                
+                # Definições automáticas de Target/Stop
+                tag = ""
+                roi_label = "Médio"
+                target = curr * 1.10 # Target padrão +10%
+                stop = curr * 0.95   # Stop padrão -5%
+                
+                if pct > 15: 
+                    tag, roi_label = "🔥 Super Momentum", "Alto Risco"
+                    target, stop = curr * 1.25, curr * 0.90
+                elif pct > 5: 
+                    tag, roi_label = "🚀 Tendência Alta", "Médio"
+                    target, stop = curr * 1.15, curr * 0.94
+                elif pct < -10: 
+                    tag, roi_label = "💎 Oversold (Dip)", "Oportunidade"
+                    target, stop = curr * 1.30, curr * 0.85
+                elif pct < -5:
+                    tag = "📉 Correção"
+                
+                if abs(pct) > 3:
+                     recommendations.append({
+                         "ticker": symbol.replace("-USD",""), 
+                         "price": smart_format(curr), 
+                         "change_5d": f"{pct:+.1f}%", 
+                         "change_raw": pct,
+                         "tag": tag,
+                         "roi": roi_label,
+                         "target": smart_format(target), # <--- Agora enviamos o Target
+                         "stop": smart_format(stop)      # <--- E o Stop
+                     })
+            except: continue
+            
+        recommendations.sort(key=lambda x: abs(x['change_raw']), reverse=True)
+        return jsonify(recommendations[:9])
+    except: return jsonify([])
+
+
+# --- ROTAS ESTÁTICAS ---
+@app.route('/crypto/analyze')
+def crypto_analyze_page(): return render_template('crypto_analyze.html', active_page='crypto')
+@app.route('/crypto/recommend')
+def crypto_recommend_page(): return render_template('crypto_recommend.html', active_page='crypto')
+@app.route('/crypto/strategy')
+def crypto_strategy_page(): return render_template('crypto_strategy.html', active_page='crypto')
+@app.route('/crypto/decoder')
+def crypto_decoder_page(): return render_template('crypto_decoder.html', active_page='crypto')
+@app.route('/etf')
+def etf_page(): return render_template('etf.html', active_page='etf')
+@app.route('/screener')
+def screener_page(): return render_template('screener.html', active_page='screener')
+@app.route('/ai')
+def ai_page(): return render_template('ai.html', active_page='ai')
+@app.route('/risk')
+def risk_page(): return render_template('risk.html', active_page='risk')
+@app.route('/legal/terms')
+def terms_page(): return render_template('legal_terms.html')
+@app.route('/legal/privacy')
+def privacy_page(): return render_template('legal_privacy.html')
+
+if __name__ == '__main__':
+    print("--- A INICIAR SERVIDOR ---")
+    with app.app_context():
+        db.create_all()
+    # Usa porta 5001 para evitar conflitos de porta presa
+    app.run(debug=True, port=5001, host='0.0.0.0', threaded=True)
