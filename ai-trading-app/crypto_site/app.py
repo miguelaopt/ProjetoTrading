@@ -1,4 +1,6 @@
 # app.py
+
+#CURRENT VERSION: 2.0 APLHA
 import os
 import json
 import feedparser
