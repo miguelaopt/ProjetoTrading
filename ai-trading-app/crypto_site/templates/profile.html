@@ -28,75 +28,85 @@
     <div class="profile-grid">
         
         <div class="glass-panel text-center" style="height: fit-content;">
-            
-            <form method="POST" action="{{ url_for('update_avatar') }}">
-                <div class="profile-avatar-container">
-                    <div class="profile-avatar">
-                        <i class="fa-solid {{ current_user.avatar if current_user.avatar else 'fa-user' }}"></i>
-                    </div>
-                    <button type="button" class="edit-avatar-btn" onclick="toggleAvatarSelection()" title="Mudar Avatar">
-                        <i class="fa-solid fa-camera"></i>
-                    </button>
-                </div>
-                
-                <h3 style="margin-bottom: 5px;">{{ current_user.username }}</h3>
-                <span class="beta-badge" style="font-size: 0.7rem;">PRO MEMBER</span>
-                
-                <div id="avatar-selector" class="hidden glass-panel mt-20" style="padding:15px; border: 1px solid var(--neon-blue);">
-                    <p style="font-size:0.8rem; margin:0 0 10px 0;">Escolhe o teu ícone:</p>
-                    <div class="avatar-options">
-                        <button type="submit" name="avatar" value="fa-user" class="avatar-option"><i class="fa-solid fa-user"></i></button>
-                        <button type="submit" name="avatar" value="fa-robot" class="avatar-option"><i class="fa-solid fa-robot"></i></button>
-                        <button type="submit" name="avatar" value="fa-user-astronaut" class="avatar-option"><i class="fa-solid fa-user-astronaut"></i></button>
-                        <button type="submit" name="avatar" value="fa-user-ninja" class="avatar-option"><i class="fa-solid fa-user-ninja"></i></button>
-                        <button type="submit" name="avatar" value="fa-cat" class="avatar-option"><i class="fa-solid fa-cat"></i></button>
-                        <button type="submit" name="avatar" value="fa-dragon" class="avatar-option"><i class="fa-solid fa-dragon"></i></button>
-                    </div>
-                </div>
-            </form>
-
-            <div class="section-divider" style="margin: 30px 0;"></div>
-            
-            <div class="stat-mini-box">
-                <div class="stat-mini-value" style="color:var(--success);">${{ "{:,.0f}".format(current_user.virtual_balance) }}</div>
-                <div class="stat-mini-label">Saldo Simulador</div>
-            </div>
-            <div class="stat-mini-box">
-                <div class="stat-mini-value">Basic</div>
-                <div class="stat-mini-label">Tipo de Plano</div>
-            </div>
-            <div class="glass-panel mt-20 text-center">
-    <h4 style="margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">
-        <i class="fa-solid fa-trophy" style="color:#f1c40f;"></i> Conquistas
-    </h4>
     
-    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-        {% if badges %}
-            {% for badge in badges %}
-            <div title="{{ badge.title }}: {{ badge.desc }}" style="position:relative; cursor:help;">
-                <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {{ badge.color }}; color: {{ badge.color }}; font-size: 1.2rem;">
-                    <i class="fa-solid {{ badge.icon }}"></i>
-                </div>
+    <form method="POST" action="{{ url_for('update_avatar') }}">
+        <div class="profile-avatar-container">
+            <div class="profile-avatar">
+                <i class="fa-solid {{ current_user.avatar if current_user.avatar else 'fa-user' }}"></i>
             </div>
-            {% endfor %}
-        {% else %}
-            <p class="text-muted" style="font-size: 0.8rem;">
-                Faz o teu primeiro trade para ganhares uma medalha!
-            </p>
-        {% endif %}
+            <button type="button" class="edit-avatar-btn" onclick="toggleAvatarSelection()" title="Mudar Avatar">
+                <i class="fa-solid fa-camera"></i>
+            </button>
+        </div>
+        
+        <h3 style="margin-bottom: 5px;">
+            {{ current_user.username }}
+            {% if current_user.plan_type == 'Ultra' %}
+                <i class="fa-solid fa-crown" style="color: #f1c40f; font-size: 0.8em;" title="Ultra Member"></i>
+            {% elif current_user.plan_type == 'Pro' %}
+                <i class="fa-solid fa-star" style="color: #3498db; font-size: 0.8em;" title="Pro Member"></i>
+            {% endif %}
+        </h3>
+
+        <span class="beta-badge" style="
+            font-size: 0.7rem; 
+            background: {{ user_plan_color if user_plan_color else '#555' }};
+            color: {{ 'black' if current_user.plan_type in ['Pro', 'Ultra'] else 'white' }};
+        ">
+            {{ current_user.plan_type|upper }} MEMBER
+        </span>
+        
+        <div id="avatar-selector" class="hidden glass-panel mt-20" style="padding:15px; border: 1px solid var(--neon-blue);">
+            <p style="font-size:0.8rem; margin:0 0 10px 0;">Escolhe o teu ícone:</p>
+            <div class="avatar-options">
+                <button type="submit" name="avatar" value="fa-user" class="avatar-option"><i class="fa-solid fa-user"></i></button>
+                <button type="submit" name="avatar" value="fa-robot" class="avatar-option"><i class="fa-solid fa-robot"></i></button>
+                <button type="submit" name="avatar" value="fa-user-astronaut" class="avatar-option"><i class="fa-solid fa-user-astronaut"></i></button>
+                <button type="submit" name="avatar" value="fa-user-ninja" class="avatar-option"><i class="fa-solid fa-user-ninja"></i></button>
+                <button type="submit" name="avatar" value="fa-cat" class="avatar-option"><i class="fa-solid fa-cat"></i></button>
+                <button type="submit" name="avatar" value="fa-dragon" class="avatar-option"><i class="fa-solid fa-dragon"></i></button>
+            </div>
+        </div>
+    </form>
+
+    <div class="section-divider" style="margin: 30px 0;"></div>
+    
+    <div class="stat-mini-box">
+        <div class="stat-mini-value" style="color:var(--success);">${{ "{:,.0f}".format(current_user.virtual_balance) }}</div>
+        <div class="stat-mini-label">Saldo Simulador</div>
+    </div>
+    
+    <div class="stat-mini-box">
+        <div class="stat-mini-value" style="color: {{ user_plan_color }};">
+            {{ current_user.plan_type }}
+        </div>
+        <div class="stat-mini-label">
+            <a href="{{ url_for('pricing_page') }}" style="text-decoration: underline; color: #888;">Gerir Plano</a>
+        </div>
+    </div>
+
+    <div class="glass-panel mt-20 text-center" style="background: rgba(0,0,0,0.2);">
+        <h4 style="margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px;">
+            <i class="fa-solid fa-trophy" style="color:#f1c40f;"></i> Conquistas
+        </h4>
+        
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            {% if badges %}
+                {% for badge in badges %}
+                <div title="{{ badge.title }}: {{ badge.desc }}" style="position:relative; cursor:help;">
+                    <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {{ badge.color }}; color: {{ badge.color }}; font-size: 1.2rem;">
+                        <i class="fa-solid {{ badge.icon }}"></i>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted" style="font-size: 0.8rem;">
+                    Faz trades para ganhar medalhas!
+                </p>
+            {% endif %}
+        </div>
     </div>
 </div>
-
-<div class="glass-panel mt-20 text-center" style="background: linear-gradient(45deg, rgba(29, 161, 242, 0.1), transparent);">
-    <p style="font-size:0.9rem; margin-bottom:10px;">Orgulhoso do teu progresso?</p>
-    <button onclick="shareProfile()" class="btn-outline full-width" style="border-color: #1DA1F2; color: #1DA1F2;">
-        <i class="fa-brands fa-twitter"></i> Partilhar no X
-    </button>
-    <button onclick="copyLink()" class="btn-outline full-width mt-20">
-        <i class="fa-solid fa-link"></i> Copiar Link
-    </button>
-</div>
-        </div>
 
         <div>
             <div class="glass-panel mb-20">

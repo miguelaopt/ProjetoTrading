@@ -9,6 +9,8 @@ from flask_login import login_user, login_required, logout_user, current_user
 from flask_mail import Message
 from itsdangerous import URLSafeTimedSerializer
 import yfinance as yf
+import requests
+import time
 
 # --- IMPORTAÇÕES LOCAIS (A nova organização) ---
 from extensions import db, login_manager, mail, cache
@@ -68,6 +70,99 @@ def home():
 def crypto_page():
     gainers, losers = get_market_movers()
     return render_template('crypto.html', market_data=get_top_cryptos(limit=20), gainers=gainers, losers=losers, active_page='crypto')
+
+@app.context_processor
+def inject_user_plan():
+    if current_user.is_authenticated:
+        # Formatação bonita: "Pro" -> "PRO Plan"
+        plan_display = f"{current_user.plan_type} Plan"
+        
+        # Cor do badge baseada no plano
+        plan_color = "gray"
+        if current_user.plan_type == 'Pro': plan_color = "#3498db" # Azul
+        if current_user.plan_type == 'Ultra': plan_color = "#f1c40f" # Dourado
+            
+        return dict(user_plan_display=plan_display, user_plan_color=plan_color)
+    return dict(user_plan_display="", user_plan_color="")
+
+# --- ROTAS DE PLANOS E PAGAMENTOS ---
+
+@app.route('/pricing')
+@login_required
+def pricing_page():
+    return render_template('pricing.html', active_page='pricing')
+
+@app.route('/checkout/<plan_name>')
+@login_required
+def checkout_page(plan_name):
+    # Definir preços para simulação
+    prices = {
+        'Starter': 'Grátis',
+        'Pro': '€5.00',
+        'Ultra': '€10.00'
+    }
+    
+    # Se for Starter, não precisa de pagar, ativa direto
+    if plan_name == 'Starter':
+        current_user.plan_type = 'Starter'
+        current_user.special_role = None
+        db.session.commit()
+        flash("Plano Starter ativado.", "success")
+        return redirect(url_for('profile_page'))
+
+    if plan_name not in prices:
+        return redirect(url_for('pricing_page'))
+
+    return render_template('checkout.html', plan_name=plan_name, price=prices[plan_name])
+
+@app.route('/process_payment', methods=['POST'])
+@login_required
+def process_payment():
+    plan_name = request.form.get('plan')
+    
+    # SIMULAÇÃO DE PROCESSAMENTO BANCÁRIO
+    # O servidor "dorme" 2 segundos para fingir que está a contactar o banco
+    time.sleep(2.5) 
+    
+    # Aqui validarias o cartão de crédito com Stripe/PayPal na vida real
+    
+    # Atribuir Plano
+    current_user.plan_type = plan_name
+    
+    if plan_name == 'Ultra':
+        current_user.special_role = 'VIP'
+    elif plan_name == 'Pro':
+        current_user.special_role = None 
+
+    db.session.commit()
+    
+    # Redirecionar para página de sucesso
+    return render_template('payment_success.html', plan=plan_name)
+
+@app.route('/subscribe/<plan_name>')
+@login_required
+def subscribe_plan(plan_name):
+    # Validar plano
+    valid_plans = ['Starter', 'Pro', 'Ultra']
+    if plan_name not in valid_plans:
+        flash("Plano inválido.", "error")
+        return redirect(url_for('pricing_page'))
+    
+    # Aqui entraria a integração com Stripe/PayPal.
+    # Por enquanto, atualizamos diretamente na base de dados.
+    
+    current_user.plan_type = plan_name
+    
+    # Exemplo: Dar badge VIP se for Ultra
+    if plan_name == 'Ultra':
+        current_user.special_role = 'VIP'
+    elif plan_name == 'Pro':
+        current_user.special_role = None # Remove VIP antigo se descer de nivel
+    
+    db.session.commit()
+    
+    flash(f"Parabéns! Agora és membro {plan_name}.", "success")
+    return redirect(url_for('profile_page'))
 
 # --- AUTENTICAÇÃO ---
 
@@ -548,14 +643,37 @@ def toggle_watchlist(ticker):
 @app.route('/api/news')
 @cache.cached(timeout=300) 
 def get_crypto_news():
-    try:
-        feed = feedparser.parse("https://cointelegraph.com/rss")
-        news = []
-        for entry in feed.entries[:5]:
-            news.append({'title': entry.title, 'link': entry.link, 'published': entry.published})
-        return {"news": news}
-    except:
-        return {"news": []}
+    news = []
+    # Lista de fontes (Se uma falhar, tenta a próxima)
+    rss_feeds = [
+        "https://cointelegraph.com/rss",
+        "https://www.coindesk.com/arc/outboundfeeds/rss/",
+        "https://decrypt.co/feed"
+    ]
+    
+    # Cabeçalho para fingir que somos um browser (evita bloqueio 403)
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+
+    for url in rss_feeds:
+        try:
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                feed = feedparser.parse(response.content)
+                if feed.entries:
+                    for entry in feed.entries[:6]: # Pegar as 6 últimas
+                        news.append({
+                            'title': entry.title,
+                            'link': entry.link,
+                            'published': entry.published if hasattr(entry, 'published') else 'Recente'
+                        })
+                    break # Se funcionou, paramos de procurar
+        except Exception as e:
+            print(f"Erro ao ler RSS {url}: {e}")
+            continue
+
+    return {"news": news}
 
 # --- AI E SNAPSHOTS ---
 

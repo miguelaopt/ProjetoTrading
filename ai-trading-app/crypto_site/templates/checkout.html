@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .checkout-container {
+        max-width: 900px;
+        margin: 60px auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 40px;
+    }
+    
+    .order-summary {
+        background: rgba(255,255,255,0.05);
+        padding: 30px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .payment-form {
+        background: rgba(20, 20, 30, 0.8);
+        padding: 30px;
+        border-radius: 16px;
+        border: 1px solid var(--neon-blue);
+        box-shadow: 0 0 20px rgba(52, 152, 219, 0.2);
+    }
+
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; color: #ccc; font-size: 0.9rem; }
+    .form-group input { 
+        width: 100%; padding: 12px; background: rgba(0,0,0,0.3); 
+        border: 1px solid #444; border-radius: 6px; color: white; 
+    }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+    .btn-pay {
+        width: 100%; padding: 15px; background: var(--success); color: white;
+        border: none; border-radius: 8px; font-weight: bold; font-size: 1.1rem;
+        cursor: pointer; transition: 0.3s;
+    }
+    .btn-pay:hover { filter: brightness(1.2); transform: scale(1.02); }
+
+    .loader-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.9); z-index: 9999;
+        display: none; flex-direction: column;
+        align-items: center; justify-content: center;
+    }
+    
+    @media(max-width: 768px) { .checkout-container { grid-template-columns: 1fr; } }
+</style>
+
+<div id="processing-overlay" class="loader-overlay">
+    <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 4rem; color: var(--neon-blue);"></i>
+    <h3 style="margin-top: 20px;">A Processar Pagamento Seguro...</h3>
+    <p class="text-muted">Por favor não feche a janela.</p>
+</div>
+
+<div class="checkout-container fade-in">
+    <div class="order-summary">
+        <h3 class="mb-20">Resumo do Pedido</h3>
+        <div style="display:flex; justify-content:space-between; margin-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">
+            <span>Plano {{ plan_name }}</span>
+            <span style="font-weight:bold;">{{ price }}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px; color:#888;">
+            <span>Subtotal</span>
+            <span>{{ price }}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:20px; color:#888;">
+            <span>Taxas</span>
+            <span>€0.00</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:1.5rem; font-weight:bold;">
+            <span>Total</span>
+            <span style="color:var(--neon-green);">{{ price }}</span>
+        </div>
+        
+        <div style="margin-top: 30px; font-size: 0.8rem; color: #666;">
+            <i class="fa-solid fa-lock"></i> Pagamento encriptado SSL de 256-bits.
+        </div>
+    </div>
+
+    <div class="payment-form">
+        <h3 class="mb-20"><i class="fa-regular fa-credit-card"></i> Detalhes de Pagamento</h3>
+        
+        <form id="paymentForm" action="{{ url_for('process_payment') }}" method="POST">
+            <input type="hidden" name="plan" value="{{ plan_name }}">
+            
+            <div class="form-group">
+                <label>Nome no Cartão</label>
+                <input type="text" placeholder="Ex: JOAO SILVA" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Número do Cartão</label>
+                <div style="position:relative;">
+                    <input type="text" placeholder="0000 0000 0000 0000" maxlength="19" required>
+                    <i class="fa-brands fa-cc-visa" style="position:absolute; right:10px; top:10px; font-size:1.5rem; color:#ccc;"></i>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Validade (MM/AA)</label>
+                    <input type="text" placeholder="MM/AA" maxlength="5" required>
+                </div>
+                <div class="form-group">
+                    <label>CVV</label>
+                    <input type="text" placeholder="123" maxlength="3" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-pay" onclick="showProcessing()">
+                Pagar {{ price }}
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function showProcessing() {
+        // Validação simples HTML5
+        const form = document.getElementById('paymentForm');
+        if(form.checkValidity()) {
+            document.getElementById('processing-overlay').style.display = 'flex';
+        }
+    }
+</script>
+{% endblock %}

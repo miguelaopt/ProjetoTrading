@@ -1155,3 +1155,159 @@ select option {
     cursor: pointer; z-index: 101; font-size: 1.2rem;
     box-shadow: 0 0 15px var(--neon-blue);
 }
+
+/* Container do Widget */
+.news-wrapper {
+    position: fixed;
+    bottom: 25px;
+    right: 25px;
+    z-index: 9999;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Botão Flutuante (FAB) */
+.news-fab {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--neon-blue), #2980b9);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.news-fab:hover {
+    transform: scale(1.1) rotate(-5deg);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.6);
+}
+
+/* Ponto de Notificação */
+.notification-dot {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 10px;
+    height: 10px;
+    background-color: #e74c3c;
+    border-radius: 50%;
+    border: 2px solid #1a1a1a;
+    display: none; /* Aparece via JS */
+}
+
+/* O Popup Retangular */
+.news-popup {
+    position: absolute;
+    bottom: 80px; /* Fica acima do botão */
+    right: 0;
+    width: 350px;
+    height: 450px;
+    background: rgba(20, 20, 30, 0.95);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    
+    /* Estado Inicial da Animação (Escondido) */
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: bottom right;
+}
+
+/* Estado Ativo (Visível) */
+.news-popup.active {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: all;
+}
+
+/* Cabeçalho do Popup */
+.news-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    color: white;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 16px 16px 0 0;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 5px;
+}
+.close-btn:hover { color: white; }
+
+/* Conteúdo com Scroll */
+.news-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+/* Estilo de cada notícia */
+.news-item {
+    background: rgba(255, 255, 255, 0.03);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border: 1px solid transparent;
+    transition: 0.2s;
+}
+
+.news-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(52, 152, 219, 0.3);
+}
+
+.news-item h5 {
+    margin: 0 0 5px 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.news-item a {
+    color: #ddd;
+    text-decoration: none;
+}
+
+.news-item .date {
+    font-size: 0.7rem;
+    color: #666;
+    display: block;
+    margin-top: 5px;
+}
+
+.news-footer {
+    padding: 10px;
+    text-align: center;
+    font-size: 0.7rem;
+    color: #555;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Scrollbar Bonita */
+.news-content::-webkit-scrollbar { width: 6px; }
+.news-content::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+.news-content::-webkit-scrollbar-track { background: transparent; }
+
+/* Responsivo para telemóvel */
+@media (max-width: 480px) {
+    .news-popup { width: 300px; right: -10px; }
+}

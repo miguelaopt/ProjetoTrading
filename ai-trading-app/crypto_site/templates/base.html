@@ -10,7 +10,8 @@
     <meta name="author" content="FlowTrade Team">
 
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://flowtrade.app/"> <meta property="og:title" content="Domina o Mercado Crypto com AI 🚀">
+    <meta property="og:url" content="https://flowtrade.app/"> 
+    <meta property="og:title" content="Domina o Mercado Crypto com AI 🚀">
     <meta property="og:description" content="Simula trades com $10k virtuais e recebe análises de AI em tempo real. Começa grátis!">
     <meta property="og:image" content="{{ url_for('static', filename='gradient3.jpg', _external=True) }}">
 
@@ -21,6 +22,62 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Container do Widget Flutuante */
+        .news-wrapper { position: fixed; bottom: 25px; right: 25px; z-index: 99999; display: flex; flex-direction: column; align-items: flex-end; }
+        
+        /* Botão Redondo (FAB) */
+        .news-fab {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            border: none; color: white; font-size: 1.5rem; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100000;
+        }
+        .news-fab:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(52, 152, 219, 0.6); }
+
+        /* O Popup Retangular */
+        .news-popup {
+            width: 350px; height: 450px;
+            background: rgba(20, 20, 30, 0.98);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            display: flex; flex-direction: column;
+            margin-bottom: 15px;
+            
+            /* Estado Inicial (Escondido) */
+            opacity: 0;
+            transform: translateY(20px) scale(0.9);
+            pointer-events: none;
+            transition: all 0.3s ease;
+            transform-origin: bottom right;
+        }
+
+        .news-popup.active {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: all;
+        }
+
+        /* Estilos Internos do Popup */
+        .news-header { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; font-weight: bold; background: rgba(255,255,255,0.05); border-radius: 16px 16px 0 0; color: white; }
+        .news-content { flex: 1; overflow-y: auto; padding: 10px; }
+        
+        .news-item { background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid transparent; transition: 0.2s; }
+        .news-item:hover { background: rgba(255,255,255,0.08); border-left-color: #3498db; }
+        .news-item a { color: #eee; text-decoration: none; font-size: 0.9rem; font-weight: 500; display: block; line-height: 1.4; }
+        .news-item .date { font-size: 0.75rem; color: #888; margin-top: 5px; display: block; }
+        
+        .news-content::-webkit-scrollbar { width: 5px; }
+        .news-content::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+
+        @media (max-width: 480px) { .news-popup { width: 300px; } }
+    </style>
 </head>
 <body>
 
@@ -46,9 +103,14 @@
             <a href="{{ url_for('paper_trading') }}" class="{{ 'active-link' if active_page == 'paper_trading' else '' }}" style="color: #f1c40f;">
                 <i class="fa-solid fa-gamepad"></i> <span>Simulador</span>
             </a>
+            
             <a href="{{ url_for('leaderboard_page') }}" class="{{ 'active-link' if active_page == 'leaderboard' else '' }}" style="color: #e67e22;">
-    <i class="fa-solid fa-trophy"></i> <span>Ranking</span>
-</a>
+                <i class="fa-solid fa-trophy"></i> <span>Ranking</span>
+            </a>
+
+            <a href="#" onclick="toggleNews(); return false;" class="nav-link" title="Abrir Notícias">
+                <i class="fa-solid fa-newspaper"></i> <span>Notícias</span>
+            </a>
 
             <div class="user-menu-container">
                 <div class="user-trigger" style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
@@ -67,12 +129,15 @@
                 
                 <div class="user-dropdown-content">
                     <div class="dropdown-header">
-                        <span style="font-size:0.7rem; background:var(--neon-purple); padding:2px 8px; border-radius:10px; color:white; letter-spacing:1px; font-weight:bold;">
-                            PLAN BETA
+                        <span style="font-size:0.7rem; background:{{ user_plan_color }}; padding:2px 8px; border-radius:10px; color:black; letter-spacing:1px; font-weight:bold;">
+                            {{ user_plan_display|upper }}
                         </span>
                     </div>
                     <a href="{{ url_for('profile_page') }}" class="dropdown-item"><i class="fa-solid fa-id-card"></i> Meu Perfil</a>
                     <a href="{{ url_for('history_page') }}" class="dropdown-item"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
+                    
+                    <a href="{{ url_for('pricing_page') }}" class="dropdown-item"><i class="fa-solid fa-gem"></i> Planos</a>
+                    
                     <div class="dropdown-divider"></div>
                     <a href="{{ url_for('logout') }}" class="dropdown-item" style="color:var(--danger);"><i class="fa-solid fa-right-from-bracket"></i> Sair</a>
                 </div>
@@ -102,6 +167,7 @@
                 <div>
                     <strong>{{ current_user.username }}</strong>
                     <div style="color:var(--success); font-weight:bold;">${{ "{:,.0f}".format(current_user.virtual_balance) }}</div>
+                    <div style="font-size:0.75rem; color:{{ user_plan_color }};">{{ user_plan_display }}</div>
                 </div>
             </div>
         {% endif %}
@@ -114,7 +180,7 @@
                 <a href="{{ url_for('paper_trading') }}" style="color:#f1c40f;"><i class="fa-solid fa-gamepad"></i> Simulador</a>
                 <a href="{{ url_for('leaderboard_page') }}" style="color:#e67e22;"><i class="fa-solid fa-trophy"></i> Ranking Global</a>
                 <a href="{{ url_for('profile_page') }}"><i class="fa-solid fa-id-card"></i> Meu Perfil</a>
-                <a href="{{ url_for('history_page') }}"><i class="fa-solid fa-clock-rotate-left"></i> Histórico</a>
+                <a href="{{ url_for('pricing_page') }}"><i class="fa-solid fa-gem"></i> Upgrade Plano</a>
                 <a href="{{ url_for('logout') }}" style="color:var(--danger); margin-top:20px;"><i class="fa-solid fa-right-from-bracket"></i> Sair</a>
             {% else %}
                 <a href="{{ url_for('login_page') }}"><i class="fa-solid fa-right-to-bracket"></i> Login</a>
@@ -124,90 +190,160 @@
     </div>
 </div>
 
-    <div class="container mt-100" style="min-height: 80vh; padding-top: 40px;">
-        
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="glass-panel" style="margin-bottom: 20px; border-color: {{ 'var(--success)' if category == 'success' else 'var(--danger)' }}; color: white;">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-        
-        {% block content %}{% endblock %}
-    </div>
-
-    <footer class="pro-footer">
-        <div class="footer-content">
-            <div class="footer-col">
-                <h4>FlowTrade Galaxy</h4>
-                <p>Democratizamos o acesso à inteligência artificial para investidores iniciantes. Aprende a investir sem riscos.</p>
-            </div>
-            
-            <div class="footer-col">
-                <h4>Plataforma</h4>
-                <a href="{{ url_for('home') }}">Início</a>
-                <a href="{{ url_for('crypto_page') }}">Mercado Crypto</a>
-                <a href="{{ url_for('paper_trading') }}">Simulador</a>
-            </div>
-
-            <div class="footer-col">
-                <h4>Legal</h4>
-                <a href="{{ url_for('terms_page') }}">Termos de Uso</a>
-                <a href="{{ url_for('privacy_page') }}">Política de Privacidade</a>
-                <span style="font-size: 0.8rem; color: #555; display: block; margin-top: 10px;">
-                    Isenção de Responsabilidade: Não somos consultores financeiros.
-                </span>
-            </div>
-
-            <div class="footer-col">
-                <h4>Comunidade</h4>
-                <div class="social-icons">
-                    <i class="fa-brands fa-twitter"></i>
-                    <i class="fa-brands fa-discord"></i>
-                    <i class="fa-brands fa-instagram"></i>
+<div class="container mt-100" style="min-height: 80vh; padding-top: 40px;">
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="glass-panel" style="margin-bottom: 20px; border-color: {{ 'var(--success)' if category == 'success' else 'var(--danger)' }}; color: white; padding: 15px;">
+                    {{ message }}
                 </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    {% block content %}{% endblock %}
+</div>
+
+<footer class="pro-footer">
+    <div class="footer-content">
+        <div class="footer-col">
+            <h4>FlowTrade Galaxy</h4>
+            <p>Democratizamos o acesso à inteligência artificial para investidores iniciantes. Aprende a investir sem riscos.</p>
+        </div>
+        
+        <div class="footer-col">
+            <h4>Plataforma</h4>
+            <a href="{{ url_for('home') }}">Início</a>
+            <a href="{{ url_for('crypto_page') }}">Mercado Crypto</a>
+            <a href="{{ url_for('paper_trading') }}">Simulador</a>
+        </div>
+
+        <div class="footer-col">
+            <h4>Legal</h4>
+            <a href="{{ url_for('terms_page') }}">Termos de Uso</a>
+            <a href="{{ url_for('privacy_page') }}">Política de Privacidade</a>
+            <span style="font-size: 0.8rem; color: #555; display: block; margin-top: 10px;">
+                Isenção de Responsabilidade: Não somos consultores financeiros.
+            </span>
+        </div>
+
+        <div class="footer-col">
+            <h4>Comunidade</h4>
+            <div class="social-icons">
+                <i class="fa-brands fa-twitter"></i>
+                <i class="fa-brands fa-discord"></i>
+                <i class="fa-brands fa-instagram"></i>
             </div>
         </div>
-        <div class="copyright">
-            &copy; 2026 FlowTrade Galaxy. Todos os direitos reservados.
-        </div>
-    </footer>
-
-    <div id="cookie-banner">
-        🍪 Usamos cookies para melhorar a tua experiência. Ao continuar, aceitas a nossa <a href="{{ url_for('privacy_page') }}" style="color: var(--neon-blue);">Política de Privacidade</a>.
-        <button onclick="acceptCookies()">Aceitar</button>
     </div>
+    <div class="copyright">
+        &copy; 2026 FlowTrade Galaxy. Todos os direitos reservados.
+    </div>
+</footer>
 
-    <script>
-        if (!localStorage.getItem('cookiesAccepted')) {
-            document.getElementById('cookie-banner').style.display = 'block';
-        }
-        function acceptCookies() {
-            localStorage.setItem('cookiesAccepted', 'true');
-            document.getElementById('cookie-banner').style.display = 'none';
-        }
-    </script>
+<div id="cookie-banner">
+    🍪 Usamos cookies para melhorar a tua experiência. Ao continuar, aceitas a nossa <a href="{{ url_for('privacy_page') }}" style="color: var(--neon-blue);">Política de Privacidade</a>.
+    <button onclick="acceptCookies()">Aceitar</button>
+</div>
 
 <div id="toast-container"></div>
 
-<button class="news-toggle-btn" onclick="toggleNews()" title="Crypto News">
-    <i class="fa-solid fa-newspaper"></i>
-</button>
-
-<div id="news-feed" class="news-widget">
-    <h4 style="margin-bottom:15px; display:flex; justify-content:space-between;">
-        <span>🔥 Market News</span>
-        <i class="fa-solid fa-xmark" onclick="toggleNews()" style="cursor:pointer;"></i>
-    </h4>
-    <div id="news-content">
-        <div class="skeleton skeleton-title"></div>
-        <div class="skeleton skeleton-text"></div>
-        <div class="skeleton skeleton-text"></div>
+<div class="news-wrapper">
+    <div id="news-popup" class="news-popup">
+        <div class="news-header">
+            <span><i class="fa-solid fa-bolt" style="color:#f1c40f;"></i> Crypto News</span>
+            <button onclick="toggleNews()" style="background:none; border:none; color:#aaa; cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="news-content-area" class="news-content">
+            <div style="text-align:center; padding:40px; color:#666;">
+                <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+                <p style="margin-top:10px;">A carregar notícias...</p>
+            </div>
+        </div>
+        <div style="padding:8px; text-align:center; font-size:0.7rem; color:#555; border-top:1px solid rgba(255,255,255,0.05);">
+            Atualizado via RSS
+        </div>
     </div>
+
+    <button id="news-fab" class="news-fab" onclick="toggleNews()" title="Ver Notícias">
+        <i class="fa-solid fa-newspaper"></i>
+    </button>
 </div>
+
+<script>
+    if (!localStorage.getItem('cookiesAccepted')) {
+        document.getElementById('cookie-banner').style.display = 'block';
+    }
+    function acceptCookies() {
+        localStorage.setItem('cookiesAccepted', 'true');
+        document.getElementById('cookie-banner').style.display = 'none';
+    }
+
+    // Lógica do Popup de Notícias
+    let newsLoaded = false;
+
+    function toggleNews() {
+        const popup = document.getElementById('news-popup');
+        const fab = document.getElementById('news-fab');
+        
+        popup.classList.toggle('active');
+        
+        if (popup.classList.contains('active')) {
+            fab.style.background = "#e74c3c"; // Vermelho
+            fab.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            fab.style.transform = "rotate(90deg)";
+            
+            if (!newsLoaded) { fetchNews(); }
+        } else {
+            fab.style.background = "linear-gradient(135deg, #3498db, #2980b9)"; // Azul
+            fab.innerHTML = '<i class="fa-solid fa-newspaper"></i>';
+            fab.style.transform = "rotate(0deg)";
+        }
+    }
+
+    function fetchNews() {
+        const contentArea = document.getElementById('news-content-area');
+        
+        fetch('/api/news')
+            .then(response => response.json())
+            .then(data => {
+                if (data.news && data.news.length > 0) {
+                    contentArea.innerHTML = ''; 
+                    data.news.forEach(item => {
+                        let dateStr = "Hoje";
+                        try { dateStr = new Date(item.published).toLocaleDateString(); } catch(e){}
+                        
+                        contentArea.innerHTML += `
+                            <div class="news-item">
+                                <a href="${item.link}" target="_blank">${item.title}</a>
+                                <span class="date"><i class="fa-regular fa-clock"></i> ${dateStr}</span>
+                            </div>
+                        `;
+                    });
+                    newsLoaded = true;
+                } else {
+                    contentArea.innerHTML = '<div style="padding:20px; text-align:center;">Sem notícias disponíveis.</div>';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                contentArea.innerHTML = '<div style="padding:20px; text-align:center; color:#e74c3c;">Erro ao carregar.</div>';
+            });
+    }
+
+    // Scripts do Mobile Menu (do teu original)
+    function toggleMobileMenu() {
+        const menu = document.getElementById('mobile-menu-overlay');
+        if (menu.style.display === 'flex') {
+            menu.style.display = 'none';
+        } else {
+            menu.style.display = 'flex';
+        }
+    }
+</script>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 
 </body>
 </html>

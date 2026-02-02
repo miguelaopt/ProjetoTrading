@@ -522,3 +522,71 @@ async function toggleWatchlist(ticker, btnElement) {
         showToast('Erro ao atualizar favoritos', 'error');
     }
 }
+
+let newsLoaded = false;
+
+function toggleNews() {
+    const popup = document.getElementById('news-popup');
+    const fab = document.getElementById('news-fab');
+    const dot = document.getElementById('news-dot');
+    
+    // Alternar classe 'active'
+    popup.classList.toggle('active');
+    
+    // Efeito no botão
+    if (popup.classList.contains('active')) {
+        fab.style.transform = "rotate(90deg)";
+        fab.style.background = "#e74c3c"; // Fica vermelho para fechar
+        fab.innerHTML = '<i class="fa-solid fa-xmark"></i>'; // Muda ícone para X
+        
+        // Remove o ponto de notificação
+        dot.style.display = 'none';
+
+        // Carrega notícias se ainda não carregou
+        if (!newsLoaded) {
+            fetchNews();
+        }
+    } else {
+        fab.style.transform = "rotate(0deg)";
+        fab.style.background = "linear-gradient(135deg, var(--neon-blue), #2980b9)";
+        fab.innerHTML = '<i class="fa-solid fa-newspaper"></i><span class="notification-dot" id="news-dot"></span>';
+    }
+}
+
+function fetchNews() {
+    const contentArea = document.getElementById('news-content-area');
+    
+    fetch('/api/news')
+        .then(response => response.json())
+        .then(data => {
+            if (data.news && data.news.length > 0) {
+                contentArea.innerHTML = ''; // Limpa loader
+                
+                data.news.forEach(item => {
+                    const dateObj = new Date(item.published);
+                    const dateStr = isNaN(dateObj.getTime()) ? 'Hoje' : dateObj.toLocaleDateString();
+                    
+                    const newsHtml = `
+                        <div class="news-item">
+                            <h5><a href="${item.link}" target="_blank">${item.title}</a></h5>
+                            <span class="date"><i class="fa-regular fa-clock"></i> ${dateStr}</span>
+                        </div>
+                    `;
+                    contentArea.innerHTML += newsHtml;
+                });
+                newsLoaded = true; // Marca como carregado
+            } else {
+                contentArea.innerHTML = '<p class="text-center text-muted mt-20">Sem notícias disponíveis.</p>';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            contentArea.innerHTML = '<p class="text-center text-muted mt-20">Erro ao carregar notícias.</p>';
+        });
+}
+
+// Opcional: Mostrar o ponto vermelho após 3 segundos para chamar a atenção
+setTimeout(() => {
+    const dot = document.getElementById('news-dot');
+    if(dot) dot.style.display = 'block';
+}, 3000);

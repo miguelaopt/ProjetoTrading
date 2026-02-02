@@ -8,8 +8,21 @@
     <p>A tua ponte entre o caos do mercado e a clareza dos dados.</p>
     
     <div class="auth-buttons">
-        <a href="{{ url_for('login_page') }}"><button class="btn-glow">Começar Agora</button></a>
-        <a href="{{ url_for('screener_page') }}"><button class="btn-outline">Explorar Demo</button></a>
+        {% if current_user.is_authenticated %}
+            <a href="{{ url_for('pricing_page') }}">
+                <button class="btn-glow">Ver Planos</button>
+            </a>
+            <a href="{{ url_for('paper_trading') }}">
+                <button class="btn-outline">Ir para Simulador</button>
+            </a>
+        {% else %}
+            <a href="{{ url_for('login_page') }}">
+                <button class="btn-glow">Começar Agora</button>
+            </a>
+            <a href="{{ url_for('screener_page') }}">
+                <button class="btn-outline">Explorar Demo</button>
+            </a>
+        {% endif %}
     </div>
 </div>
 
@@ -64,10 +77,6 @@
             <div class="gauge-center"></div>
 
             <div class="gauge-inner-content">
-                {% set color_class = 'red' %}
-                {% if sentiment.value > 55 %}{% set color_class = 'green' %}
-                {% elif sentiment.value >= 45 %}{% set color_class = 'yellow' %} {% endif %}
-                
                 <div class="sentiment-value-huge" style="color: {{ 'var(--neon-green)' if sentiment.value > 55 else ('var(--neon-red)' if sentiment.value < 45 else '#f1c40f') }};">
                     {{ sentiment.value }}
                 </div>
@@ -88,7 +97,6 @@
         </p>
     </div>
 </div>
-</div>
 
 <div class="section-divider"></div>
 
@@ -99,21 +107,21 @@
             <a href="{{ url_for('crypto_page') }}" class="see-more">Ver Top 20 <i class="fa-solid fa-arrow-right"></i></a>
         </div> 
         <ul id="home-crypto-list" class="market-list home-list">
-    {% for coin in top_crypto %}
-    <li>
-        <div class="asset-info">
-            <div class="asset-icon"><i class="{{ coin.icon }}"></i></div> 
-            <span style="font-weight: bold; font-size: 1.1rem;">{{ coin.symbol }}</span>
-        </div>
-        <div class="price-box">
-            <span>{{ coin.price }}</span>
-            <span class="{{ coin.color }}">{{ coin.change }}</span>
-        </div>
-    </li>
-    {% else %}
-    <li><span class="loading">A carregar dados...</span></li>
-    {% endfor %}
-</ul>
+            {% for coin in top_crypto %}
+            <li>
+                <div class="asset-info">
+                    <div class="asset-icon"><i class="{{ coin.icon }}"></i></div> 
+                    <span style="font-weight: bold; font-size: 1.1rem;">{{ coin.symbol }}</span>
+                </div>
+                <div class="price-box">
+                    <span>{{ coin.price }}</span>
+                    <span class="{{ coin.color }}">{{ coin.change }}</span>
+                </div>
+            </li>
+            {% else %}
+            <li><span class="loading">A carregar dados...</span></li>
+            {% endfor %}
+        </ul>
     </div>
 </div>
 
@@ -160,7 +168,9 @@
                 <li><i class="fa-solid fa-check"></i> Acesso básico à AI</li>
                 <li><i class="fa-solid fa-check"></i> 1 Watchlist</li>
             </ul>
-            <button class="btn-outline full-width">Criar Conta Grátis</button>
+            <a href="{{ url_for('pricing_page') if current_user.is_authenticated else url_for('register_page') }}">
+                <button class="btn-outline full-width">Criar Conta Grátis</button>
+            </a>
         </div>
 
         <div class="pricing-card glass-panel featured">
@@ -173,7 +183,9 @@
                 <li><i class="fa-solid fa-check"></i> Scanner Avançado</li>
                 <li><i class="fa-solid fa-check"></i> Gestão de Risco Auto</li>
             </ul>
-            <button class="btn-glow full-width">Começar Trial</button>
+            <a href="{{ url_for('pricing_page') }}">
+                <button class="btn-glow full-width">Começar Trial</button>
+            </a>
         </div>
 
         <div class="pricing-card glass-panel">
@@ -184,7 +196,9 @@
                 <li><i class="fa-solid fa-check"></i> Acesso API</li>
                 <li><i class="fa-solid fa-check"></i> Mentor Dedicado</li>
             </ul>
-            <button class="btn-outline full-width">Contactar Vendas</button>
+            <a href="{{ url_for('pricing_page') }}">
+                <button class="btn-outline full-width">Contactar Vendas</button>
+            </a>
         </div>
     </div>
 </div>
@@ -217,12 +231,6 @@
             <button class="faq-question" onclick="toggleFaq(this)">O Paper Trading usa dinheiro real? <i class="fa-solid fa-plus"></i></button>
             <div class="faq-answer">
                 <p>Não. O Paper Trading é um simulador com "dinheiro virtual" (fictício) para poderes treinar e errar sem perderes as tuas poupanças reais.</p>
-            </div>
-        </div>
-        <div class="faq-item">
-            <button class="faq-question" onclick="toggleFaq(this)">Os dados são mesmo em tempo real? <i class="fa-solid fa-plus"></i></button>
-            <div class="faq-answer">
-                <p>Na versão gratuita usamos dados de exchanges públicas com ligeiro atraso ou tempo real dependendo do ativo. Na versão Pro usamos feeds institucionais de milissegundos.</p>
             </div>
         </div>
     </div>
@@ -262,4 +270,7 @@
         requestAnimationFrame(raf);
     });
 </script>
+
+<div id="market-news" style="height:1px;"></div>
+
 {% endblock %}

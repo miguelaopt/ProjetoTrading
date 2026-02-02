@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Cabeçalho da Página */
+    .pricing-header { text-align: center; margin-bottom: 50px; padding-top: 40px; }
+    .pricing-header h2 { font-size: 2.5rem; background: linear-gradient(90deg, #fff, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    
+    /* Grelha de Preços */
+    .pricing-grid {
+    display: grid;
+    /* Reduzi de 300px para 260px para caberem 3 em ecrãs normais */
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    max-width: 1200px; /* Aumentei a largura máxima */
+    margin: 0 auto 60px;
+    align-items: stretch; /* Garante que todos têm a mesma altura */
+}
+    /* Cartão Individual */
+    .pricing-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 40px;
+        text-align: center;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .pricing-card:hover { transform: translateY(-10px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); border-color: var(--neon-blue); }
+    
+    /* Destaque para o Popular */
+    .pricing-card.popular { border: 1px solid var(--neon-purple); background: linear-gradient(180deg, rgba(142, 68, 173, 0.1), rgba(0,0,0,0)); }
+    .pricing-card.popular::before { content: "MAIS VENDIDO"; position: absolute; top: 15px; right: -30px; background: var(--neon-purple); width: 120px; font-size: 0.8rem; transform: rotate(45deg); font-weight: bold; color: white; }
+
+    /* Tipografia do Cartão */
+    .plan-name { font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; color: white; }
+    .plan-price { font-size: 3rem; font-weight: 800; color: white; margin-bottom: 20px; }
+    .plan-price span { font-size: 1rem; color: #888; font-weight: normal; }
+
+    /* Lista de Funcionalidades */
+    .features-list { list-style: none; padding: 0; margin-bottom: 30px; text-align: left; flex-grow: 1; }
+    .features-list li { margin-bottom: 12px; color: #ccc; display: flex; align-items: center; gap: 10px; }
+    .features-list li i { color: var(--neon-green); width: 20px; text-align: center; }
+    .features-list li.disabled { color: #555; }
+    .features-list li.disabled i { color: #555; }
+
+    /* BOTÕES (CORREÇÃO AQUI) */
+    .btn-plan { 
+        width: 100%; 
+        padding: 15px; 
+        border-radius: 8px; 
+        font-weight: bold; 
+        text-transform: uppercase; 
+        cursor: pointer; 
+        transition: 0.3s; 
+        border: none;
+        
+        /* Remove o sublinhado e garante formatação correta */
+        text-decoration: none !important; 
+        display: block; 
+        text-align: center;
+    }
+    
+    /* Estilos Específicos dos Botões */
+    .btn-starter { background: rgba(255,255,255,0.1); color: white; }
+    .btn-starter:hover { background: white; color: black; }
+    
+    .btn-pro { background: var(--neon-blue); color: white; box-shadow: 0 0 15px rgba(52, 152, 219, 0.3); }
+    .btn-pro:hover { box-shadow: 0 0 25px rgba(52, 152, 219, 0.6); transform: scale(1.02); color: white; }
+    
+    .btn-ultra { background: linear-gradient(45deg, #f1c40f, #d35400); color: white; box-shadow: 0 0 15px rgba(241, 196, 15, 0.3); }
+    .btn-ultra:hover { box-shadow: 0 0 25px rgba(241, 196, 15, 0.6); transform: scale(1.02); color: white; }
+
+    /* FAQ */
+    .faq-section { max-width: 800px; margin: 0 auto; padding-bottom: 60px; }
+    .faq-item { background: rgba(255,255,255,0.03); margin-bottom: 15px; padding: 20px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); }
+    .faq-item h4 { color: var(--neon-blue); margin-bottom: 10px; }
+</style>
+
+<div class="section-container fade-in">
+    <div class="pricing-header">
+        <h2>Escolhe o Teu Nível de Trading</h2>
+        <p class="text-muted">Desbloqueia ferramentas de IA e dados em tempo real.</p>
+    </div>
+
+    <div class="pricing-grid">
+        <div class="pricing-card">
+            <div class="plan-name">Starter</div>
+            <div class="plan-price">Grátis</div>
+            <ul class="features-list">
+                <li><i class="fa-solid fa-check"></i> Acesso ao Paper Trading ($10k)</li>
+                <li><i class="fa-solid fa-check"></i> Cotações com 15min delay</li>
+                <li><i class="fa-solid fa-check"></i> 1 Watchlist</li>
+                <li class="disabled"><i class="fa-solid fa-xmark"></i> Análise de IA (Gemini)</li>
+                <li class="disabled"><i class="fa-solid fa-xmark"></i> Copy Trading</li>
+                <li class="disabled"><i class="fa-solid fa-xmark"></i> Badges Exclusivos</li>
+            </ul>
+            {% if current_user.plan_type == 'Starter' %}
+                <button class="btn-plan btn-starter" style="opacity:0.5; cursor:default;" disabled>Plano Atual</button>
+            {% else %}
+                <a href="{{ url_for('checkout_page', plan_name='Starter') }}" class="btn-plan btn-starter">Selecionar</a>
+            {% endif %}
+        </div>
+
+        <div class="pricing-card popular">
+            <div class="plan-name">Pro</div>
+            <div class="plan-price">€5<span>/mês</span></div>
+            <ul class="features-list">
+                <li><i class="fa-solid fa-check"></i> <b>Tudo do Starter +</b></li>
+                <li><i class="fa-solid fa-check"></i> Dados em Tempo Real</li>
+                <li><i class="fa-solid fa-check"></i> 5 Watchlists</li>
+                <li><i class="fa-solid fa-check"></i> 10 Análises de IA / dia</li>
+                <li><i class="fa-solid fa-check"></i> Acesso ao Copy Trading</li>
+                <li class="disabled"><i class="fa-solid fa-xmark"></i> Prioridade no Suporte</li>
+            </ul>
+            {% if current_user.plan_type == 'Pro' %}
+                <button class="btn-plan btn-pro" style="opacity:0.5; cursor:default;" disabled>Plano Atual</button>
+            {% else %}
+                <a href="{{ url_for('checkout_page', plan_name='Pro') }}" class="btn-plan btn-pro">Atualizar Agora</a>
+            {% endif %}
+        </div>
+
+        <div class="pricing-card">
+            <div class="plan-name">Ultra</div>
+            <div class="plan-price">€10<span>/mês</span></div>
+            <ul class="features-list">
+                <li><i class="fa-solid fa-check"></i> <b>Tudo do Pro +</b></li>
+                <li><i class="fa-solid fa-check"></i> AI Ilimitada (Gemini Pro)</li>
+                <li><i class="fa-solid fa-check"></i> Watchlists Ilimitadas</li>
+                <li><i class="fa-solid fa-check"></i> Taxas de Trading Reduzidas</li>
+                <li><i class="fa-solid fa-check"></i> Badge VIP Dourado</li>
+                <li><i class="fa-solid fa-check"></i> Acesso Antecipado a Betas</li>
+            </ul>
+            {% if current_user.plan_type == 'Ultra' %}
+                <button class="btn-plan btn-ultra" style="opacity:0.5; cursor:default;" disabled>Plano Atual</button>
+            {% else %}
+                <a href="{{ url_for('checkout_page', plan_name='Ultra') }}" class="btn-plan btn-ultra">Ser Ultra</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="faq-section">
+        <h3 class="text-center mb-20">Perguntas Frequentes</h3>
+        
+        <div class="faq-item">
+            <h4>Como funciona o pagamento?</h4>
+            <p class="text-muted">Atualmente aceitamos cartões de crédito e PayPal. A subscrição é renovada automaticamente todos os meses, mas podes cancelar a qualquer momento.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>Posso mudar de plano depois?</h4>
+            <p class="text-muted">Sim! Podes fazer upgrade para o Ultra ou downgrade para o Starter na tua página de perfil a qualquer momento.</p>
+        </div>
+
+        <div class="faq-item">
+            <h4>O que acontece se cancelar?</h4>
+            <p class="text-muted">Se cancelares, manténs os benefícios até ao final do ciclo de faturação atual. Depois, a tua conta volta para o plano Starter.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

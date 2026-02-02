@@ -17,6 +17,7 @@ class User(UserMixin, db.Model):
     avatar = db.Column(db.String(50), default='fa-user')
     special_role = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    plan_type = db.Column(db.String(20), default='Starter')
     
     watchlist = db.relationship('Watchlist', backref='owner', lazy=True)
     virtual_balance = db.Column(db.Float, default=10000.0)
