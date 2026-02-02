@@ -714,7 +714,7 @@ def crypto_page():
     # Agora a página crypto carrega as Top 20 reais
     top_20 = get_top_cryptos(limit=20)
     return render_template('crypto.html', 
-                           market_data=get_top_cryptos(), # A tua função antiga
+                           market_data=get_top_cryptos(limit=20), # A tua função antiga
                            gainers=gainers, 
                            losers=losers, 
                            active_page='crypto')
