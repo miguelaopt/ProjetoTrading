@@ -1269,5 +1269,5 @@ def crypto_snapshot_page():
         return redirect(url_for('crypto_page'))
 
 if __name__ == '__main__':
-    # Porta 5000 forçada para evitar erros
-    app.run(debug=True, port=5000)
+    # Adiciona host='0.0.0.0'
+    app.run(debug=True, port=5000, host='0.0.0.0')
