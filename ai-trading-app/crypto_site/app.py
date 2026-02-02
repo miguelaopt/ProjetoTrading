@@ -11,6 +11,9 @@ from itsdangerous import URLSafeTimedSerializer
 import yfinance as yf
 import requests
 import time
+import io
+from PIL import Image
+from models import PriceAlert
 
 # --- IMPORTAÇÕES LOCAIS (A nova organização) ---
 from extensions import db, login_manager, mail, cache
@@ -236,6 +239,57 @@ def reset_password(token):
         flash('Password alterada!', 'success')
         return redirect(url_for('login_page'))
     return render_template('reset_password.html', token=token)
+
+# --- ROTA: AI CHART VISION ---
+@app.route('/ai/vision', methods=['GET', 'POST'])
+@login_required
+def ai_vision_page():
+    if request.method == 'GET':
+        return render_template('ai_vision.html', active_page='ai')
+    
+    # Lógica do POST (Upload da imagem)
+    if 'chart_image' not in request.files:
+        return jsonify({'error': 'Nenhuma imagem enviada.'})
+    
+    file = request.files['chart_image']
+    coin_name = request.form.get('coin_name', 'Cripto')
+    timeframe = request.form.get('timeframe', 'Desconhecido')
+    
+    if file.filename == '':
+        return jsonify({'error': 'Ficheiro inválido.'})
+
+    try:
+        # 1. Processar a imagem na memória
+        image_bytes = file.read()
+        image = Image.open(io.BytesIO(image_bytes))
+        
+        # 2. Preparar o Prompt para o Expert em Trading
+        prompt = f"""
+        Atua como um Analista Técnico Profissional de Criptomoedas com 20 anos de experiência.
+        
+        Analisa a imagem deste gráfico de {coin_name} (Timeframe: {timeframe}).
+        
+        Fornece um relatório estruturado em HTML simples (sem markdown, usa <b>, <br>, <ul>) com:
+        1. 📈 **Tendência Atual:** (Alta, Baixa ou Lateralização).
+        2. 🧱 **Níveis Chave:** Identifica Suportes e Resistências visíveis.
+        3. 📐 **Padrões Gráficos:** Procura por Bandeiras, Triângulos, Head & Shoulders, ou Fibonacci se aplicável.
+        4. 🕯️ **Análise de Velas:** Alguma vela de reversão (Doji, Martelo, Engolfo)?
+        5. 🚀 **Veredito Final:** (Compra, Venda ou Aguardar) com uma breve justificação.
+        
+        Sê direto, objetivo e educativo. Se a imagem não for um gráfico, diz apenas 'Por favor envia um gráfico válido'.
+        """
+
+        # 3. Enviar para o Gemini (Multimodal)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt, image]
+        )
+        
+        return jsonify({'status': 'success', 'analysis': response.text})
+
+    except Exception as e:
+        print(f"Erro AI Vision: {e}")
+        return jsonify({'error': 'Erro ao analisar a imagem. Tenta novamente.'})
 
 # --- PAPER TRADING (SIMULADOR) ---
 
@@ -716,6 +770,130 @@ def analyze_user_coin():
             }
         })
     except: return jsonify({"error": "Erro na análise"})
+
+
+# --- ROTA PRINCIPAL DAS FERRAMENTAS ---
+@app.route('/crypto/tools')
+@login_required
+def crypto_tools_page():
+    # Buscar alertas ativos do user
+    alerts = PriceAlert.query.filter_by(user_id=current_user.id, is_active=True).all()
+    return render_template('crypto_tools.html', alerts=alerts, active_page='crypto')
+
+# --- 1. MÁQUINA DO TEMPO (CÁLCULO HISTÓRICO) ---
+@app.route('/api/time_machine', methods=['POST'])
+@login_required
+def time_machine_calc():
+    try:
+        data = request.json
+        symbol = data.get('symbol', 'BTC').upper()
+        amount = float(data.get('amount', 100))
+        date_str = data.get('date') # Formato YYYY-MM-DD
+        
+        yf_symbol = f"{symbol}-USD"
+        stock = yf.Ticker(yf_symbol)
+        
+        # Obter preço histórico
+        hist = stock.history(start=date_str, end=None)
+        if hist.empty:
+            return jsonify({'error': 'Dados não encontrados para esta data.'})
+            
+        old_price = hist['Close'].iloc[0]
+        current_price = stock.fast_info.last_price
+        
+        # Cálculos
+        crypto_amount = amount / old_price
+        current_value = crypto_amount * current_price
+        profit = current_value - amount
+        roi = (profit / amount) * 100
+        
+        return jsonify({
+            'old_price': smart_format(old_price),
+            'current_price': smart_format(current_price),
+            'current_value': smart_format(current_value),
+            'profit': smart_format(profit),
+            'roi': f"{roi:+.2f}%",
+            'multiplier': f"{current_value/amount:.1f}x"
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+# --- 2. SISTEMA DE ALERTAS ---
+@app.route('/api/create_alert', methods=['POST'])
+@login_required
+def create_alert():
+    symbol = request.form.get('symbol').upper()
+    target = float(request.form.get('target'))
+    condition = request.form.get('condition') # 'above' ou 'below'
+    
+    # Validar se já existe
+    new_alert = PriceAlert(user_id=current_user.id, symbol=symbol, target_price=target, condition=condition)
+    db.session.add(new_alert)
+    db.session.commit()
+    
+    flash(f"Alerta criado para {symbol} a ${target}", "success")
+    return redirect(url_for('crypto_tools_page'))
+
+@app.route('/api/delete_alert/<int:id>')
+@login_required
+def delete_alert(id):
+    alert = PriceAlert.query.get_or_404(id)
+    if alert.user_id == current_user.id:
+        db.session.delete(alert)
+        db.session.commit()
+    return redirect(url_for('crypto_tools_page'))
+
+# --- ROTINA DE VERIFICAÇÃO DE ALERTAS (Chamada via JS) ---
+@app.route('/api/check_alerts')
+def check_alerts_routine():
+    # 1. Buscar todos os alertas ativos
+    active_alerts = PriceAlert.query.filter_by(is_active=True).all()
+    if not active_alerts: return jsonify({'status': 'no_alerts'})
+    
+    # 2. Agrupar moedas para baixar preços de uma vez (Batch)
+    symbols = set([f"{a.symbol}-USD" for a in active_alerts])
+    if not symbols: return jsonify({'status': 'ok'})
+    
+    try:
+        data = yf.download(list(symbols), period="1d", interval="1m", progress=False, group_by='ticker')
+        triggered_count = 0
+        
+        for alert in active_alerts:
+            sym_key = f"{alert.symbol}-USD"
+            try:
+                # Obter preço atual
+                if len(symbols) == 1: price = data['Close'].iloc[-1]
+                else: price = data[sym_key]['Close'].iloc[-1]
+                
+                price = float(price)
+                triggered = False
+                
+                # Verificar condição
+                if alert.condition == 'above' and price >= alert.target_price:
+                    triggered = True
+                elif alert.condition == 'below' and price <= alert.target_price:
+                    triggered = True
+                    
+                if triggered:
+                    # Enviar Email
+                    user = User.query.get(alert.user_id)
+                    msg = Message(f"🔔 Alerta de Preço: {alert.symbol}", recipients=[user.email])
+                    msg.body = f"O preço de {alert.symbol} atingiu o teu alvo de ${alert.target_price}.\nPreço Atual: ${price:,.2f}\n\nBons trades,\nEquipa FlowTrade."
+                    mail.send(msg)
+                    
+                    # Desativar alerta (ou remover)
+                    alert.is_active = False
+                    triggered_count += 1
+                    
+            except Exception as e: continue
+            
+        if triggered_count > 0: db.session.commit()
+        return jsonify({'status': 'checked', 'triggered': triggered_count})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+
 
 
 @app.route('/crypto/snapshot')

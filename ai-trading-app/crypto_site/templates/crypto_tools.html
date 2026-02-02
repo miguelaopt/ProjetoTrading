@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 30px;
+        margin-top: 30px;
+    }
+    
+    .tool-card {
+        background: rgba(20, 20, 30, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 25px;
+        height: 100%;
+    }
+    .tool-header { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; }
+    .tool-header i { font-size: 1.5rem; color: var(--neon-blue); }
+    
+    .result-box {
+        background: rgba(0,0,0,0.3);
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 20px;
+        border-left: 3px solid var(--neon-purple);
+        display: none; /* Escondido por defeito */
+    }
+    
+    .alert-item {
+        display: flex; justify-content: space-between; align-items: center;
+        background: rgba(255,255,255,0.05); padding: 10px 15px;
+        border-radius: 8px; margin-bottom: 10px;
+    }
+</style>
+
+<div class="section-container fade-in">
+    <div class="section-header text-center">
+        <h2>Crypto <span class="neon-text">Toolbox</span></h2>
+        <p>Ferramentas profissionais para análise, risco e automação.</p>
+    </div>
+
+    <div class="tools-grid">
+        
+        <div class="tool-card glass-panel">
+            <div class="tool-header">
+                <i class="fa-solid fa-hourglass-half"></i>
+                <h3>Time Machine</h3>
+            </div>
+            <p class="text-muted text-sm mb-20">"E se eu tivesse comprado Bitcoin em 2016?"</p>
+            
+            <form id="timeMachineForm">
+                <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group">
+                        <label>Investimento ($)</label>
+                        <input type="number" id="tm_amount" value="1000" class="form-input" style="width:100%">
+                    </div>
+                    <div class="form-group">
+                        <label>Moeda</label>
+                        <input type="text" id="tm_symbol" value="BTC" class="form-input" style="width:100%">
+                    </div>
+                </div>
+                <div class="form-group mt-10">
+                    <label>Data de Compra</label>
+                    <input type="date" id="tm_date" class="form-input" style="width:100%">
+                </div>
+                <button type="submit" class="btn-glow full-width mt-20">Calcular Lucro</button>
+            </form>
+
+            <div id="tm_result" class="result-box">
+                <div style="display:flex; justify-content:space-between;">
+                    <span>Valor Hoje:</span>
+                    <strong id="tm_current_val" class="text-green text-lg"></strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:5px;">
+                    <span>Lucro Líquido:</span>
+                    <span id="tm_profit"></span>
+                </div>
+                <div class="text-center mt-10 text-sm text-muted">
+                    ROI: <span id="tm_roi" class="text-white"></span> • Multiplicador: <span id="tm_multi" class="text-white"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="tool-card glass-panel">
+            <div class="tool-header">
+                <i class="fa-solid fa-calculator"></i>
+                <h3>Risk Calculator</h3>
+            </div>
+            <p class="text-muted text-sm mb-20">Calcula o tamanho ideal da posição para não perderes a conta.</p>
+
+            <div class="grid-2-col" style="display:grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="form-group">
+                    <label>Capital Total ($)</label>
+                    <input type="number" id="rc_capital" value="{{ current_user.virtual_balance }}" class="form-input" style="width:100%">
+                </div>
+                <div class="form-group">
+                    <label>Risco (%)</label>
+                    <input type="number" id="rc_risk_pct" value="1" class="form-input" style="width:100%">
+                </div>
+                <div class="form-group">
+                    <label>Entrada ($)</label>
+                    <input type="number" id="rc_entry" placeholder="Ex: 50000" class="form-input" style="width:100%">
+                </div>
+                <div class="form-group">
+                    <label>Stop Loss ($)</label>
+                    <input type="number" id="rc_stop" placeholder="Ex: 48000" class="form-input" style="width:100%">
+                </div>
+            </div>
+            <button onclick="calcRisk()" class="btn-outline full-width mt-20">Calcular Tamanho</button>
+
+            <div id="rc_result" class="result-box">
+                <div style="text-align:center;">
+                    <p class="text-muted text-sm">Tamanho da Posição (Quantidade)</p>
+                    <h2 id="rc_pos_size" class="text-blue">0.00</h2>
+                    <p id="rc_pos_value" class="text-sm mt-5">Valor: $0.00</p>
+                </div>
+                <div style="border-top:1px solid rgba(255,255,255,0.1); margin-top:10px; padding-top:10px; font-size:0.8rem; display:flex; justify-content:space-between;">
+                    <span>Perda Máx: <span id="rc_loss" class="text-red"></span></span>
+                    <span>Risco/Reward: <span id="rc_rr">Calculado na saída</span></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="tool-card glass-panel" style="grid-column: span 1 / -1;">
+            <div class="tool-header">
+                <i class="fa-solid fa-bell"></i>
+                <h3>Alertas de Preço (Email)</h3>
+            </div>
+            
+            <form action="{{ url_for('create_alert') }}" method="POST" style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;">
+                <div style="flex:1; min-width:100px;">
+                    <label class="text-sm">Moeda</label>
+                    <input type="text" name="symbol" placeholder="BTC" required class="form-input" style="width:100%">
+                </div>
+                <div style="flex:1; min-width:100px;">
+                    <label class="text-sm">Condição</label>
+                    <select name="condition" class="form-input" style="width:100%">
+                        <option value="above">Subir Acima de</option>
+                        <option value="below">Cair Abaixo de</option>
+                    </select>
+                </div>
+                <div style="flex:1; min-width:100px;">
+                    <label class="text-sm">Preço Alvo ($)</label>
+                    <input type="number" name="target" step="any" required class="form-input" style="width:100%">
+                </div>
+                <button type="submit" class="btn-glow" style="height:42px;"><i class="fa-solid fa-plus"></i> Criar</button>
+            </form>
+
+            <div class="mt-30">
+                <h4 class="mb-10 text-muted">Teus Alertas Ativos</h4>
+                {% if alerts %}
+                    {% for alert in alerts %}
+                    <div class="alert-item">
+                        <div>
+                            <strong>{{ alert.symbol }}</strong> 
+                            <span class="text-sm text-muted">
+                                {% if alert.condition == 'above' %} > {% else %} < {% endif %} 
+                                ${{ "{:,.2f}".format(alert.target_price) }}
+                            </span>
+                        </div>
+                        <a href="{{ url_for('delete_alert', id=alert.id) }}" class="text-red hover-scale"><i class="fa-solid fa-trash"></i></a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center text-sm">Sem alertas ativos.</p>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // 1. JS DA MÁQUINA DO TEMPO
+    document.getElementById('timeMachineForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = e.target.querySelector('button');
+        const originalText = btn.innerText;
+        btn.innerText = 'Calculando...';
+        
+        try {
+            const res = await fetch('/api/time_machine', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    symbol: document.getElementById('tm_symbol').value,
+                    amount: document.getElementById('tm_amount').value,
+                    date: document.getElementById('tm_date').value
+                })
+            });
+            const data = await res.json();
+            
+            if (data.error) {
+                alert(data.error);
+            } else {
+                document.getElementById('tm_result').style.display = 'block';
+                document.getElementById('tm_current_val').innerText = data.current_value;
+                document.getElementById('tm_profit').innerText = data.profit;
+                document.getElementById('tm_roi').innerText = data.roi;
+                document.getElementById('tm_multi').innerText = data.multiplier;
+                
+                // Colorir resultado
+                if(data.profit.includes('-')) document.getElementById('tm_profit').className = 'text-red';
+                else document.getElementById('tm_profit').className = 'text-green';
+            }
+        } catch(err) { alert('Erro ao calcular.'); }
+        btn.innerText = originalText;
+    });
+
+    // 2. JS DA CALCULADORA DE RISCO
+    function calcRisk() {
+        const capital = parseFloat(document.getElementById('rc_capital').value);
+        const riskPct = parseFloat(document.getElementById('rc_risk_pct').value);
+        const entry = parseFloat(document.getElementById('rc_entry').value);
+        const stop = parseFloat(document.getElementById('rc_stop').value);
+
+        if (!entry || !stop) return;
+
+        const riskAmount = capital * (riskPct / 100);
+        const riskPerShare = Math.abs(entry - stop);
+        const shares = riskAmount / riskPerShare;
+        const totalValue = shares * entry;
+
+        document.getElementById('rc_result').style.display = 'block';
+        document.getElementById('rc_pos_size').innerText = shares.toFixed(4) + " Coins";
+        document.getElementById('rc_pos_value').innerText = "Investimento Total: $" + totalValue.toLocaleString();
+        document.getElementById('rc_loss').innerText = "-$" + riskAmount.toFixed(2);
+    }
+</script>
+{% endblock %}

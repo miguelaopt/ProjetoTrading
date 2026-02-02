@@ -18,7 +18,7 @@ class User(UserMixin, db.Model):
     special_role = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     plan_type = db.Column(db.String(20), default='Starter')
-    
+    alerts = db.relationship('PriceAlert', backref='owner', lazy=True)
     watchlist = db.relationship('Watchlist', backref='owner', lazy=True)
     virtual_balance = db.Column(db.Float, default=10000.0)
     portfolio = db.relationship('Portfolio', backref='owner', lazy=True)
@@ -40,3 +40,12 @@ class Transaction(db.Model):
     amount = db.Column(db.Float, nullable=False)
     total_value = db.Column(db.Float, nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+class PriceAlert(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    symbol = db.Column(db.String(20), nullable=False)
+    target_price = db.Column(db.Float, nullable=False)
+    condition = db.Column(db.String(10), nullable=False) # 'above' (acima de) ou 'below' (abaixo de)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

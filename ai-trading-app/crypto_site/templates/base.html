@@ -108,6 +108,13 @@
                 <i class="fa-solid fa-trophy"></i> <span>Ranking</span>
             </a>
 
+            <a href="{{ url_for('ai_vision_page') }}" class="{{ 'active-link' if active_page == 'ai_vision' else '' }}">
+                <i class="fa-solid fa-eye"></i> <span>AI Vision</span>
+            </a>
+            <a href="{{ url_for('crypto_tools_page') }}" class="{{ 'active-link' if active_page == 'crypto_tools' else '' }}">
+                <i class="fa-solid fa-toolbox"></i> <span>Ferramentas</span>
+            </a>
+
             <a href="#" onclick="toggleNews(); return false;" class="nav-link" title="Abrir Notícias">
                 <i class="fa-solid fa-newspaper"></i> <span>Notícias</span>
             </a>
@@ -344,6 +351,20 @@
 </script>
 
 <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+<script>
+    setInterval(() => {
+    fetch('/api/check_alerts')
+        .then(r => r.json())
+        .then(data => {
+            if(data.triggered > 0) {
+                // Se algum alerta disparou, mostra notificação visual
+                // (Opcional, pois já manda email)
+                console.log(data.triggered + " alertas disparados!");
+            }
+        });
+}, 60000); // 60000ms = 1 minuto
+</script>
 
 </body>
 </html>
