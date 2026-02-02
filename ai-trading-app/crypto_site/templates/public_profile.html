@@ -36,13 +36,12 @@
             </div>
         </div>
         <div class="mt-20">
-    <p class="text-muted mb-10">Gostas desta estratégia?</p>
-    <a href="{{ url_for('copy_trade', target_username=trader.username) }}" 
-       class="btn-glow" 
-       onclick="return confirm('ATENÇÃO: Isto vai vender todo o teu portfólio atual para copiar este trader. Tens a certeza?');">
-       <i class="fa-solid fa-copy"></i> Copiar Portfólio
-    </a>
-</div>
+            <p class="text-muted mb-10">Gostas desta estratégia?</p>
+            <a href="{{ url_for('copy_trade_preview', target_username=trader.username) }}" 
+                class="btn-glow">
+            <i class="fa-solid fa-copy"></i> Copiar Portfólio
+            </a>
+        </div>
     </div>
 
     <h3 class="mt-60 mb-20">Carteira Pública</h3>

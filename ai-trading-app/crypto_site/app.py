@@ -74,11 +74,10 @@ class User(UserMixin, db.Model):
     avatar = db.Column(db.String(50), default='fa-user')
     special_role = db.Column(db.String(50), nullable=True)
     watchlist = db.relationship('Watchlist', backref='owner', lazy=True)
-
-    
+    # NOVO CAMPO: Data de criação da conta
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     # Paper Trading: Saldo Virtual (Começa com 10k)
     virtual_balance = db.Column(db.Float, default=10000.0)
-    
     # Relações
     portfolio = db.relationship('Portfolio', backref='owner', lazy=True)
     transactions = db.relationship('Transaction', backref='owner', lazy=True)
@@ -276,6 +275,178 @@ def public_profile(username):
                            pnl=pnl, 
                            portfolio=portfolio_list,
                            badges=badges) # <--- Envia badges para o HTML
+
+@app.route('/copy_trade/preview/<target_username>')
+@login_required
+def copy_trade_preview(target_username):
+    target_user = User.query.filter_by(username=target_username).first_or_404()
+    
+    if target_user.id == current_user.id:
+        flash("Não podes copiar-te a ti mesmo.", "error")
+        return redirect(url_for('profile_page'))
+
+    if not target_user.portfolio:
+        flash(f"O utilizador {target_username} não tem ativos para copiar.", "info")
+        return redirect(url_for('public_profile', username=target_username))
+
+    total_cost_to_copy = 0.0
+    target_assets = []
+    
+    # --- OTIMIZAÇÃO: 1. Preparar lista de Símbolos ---
+    symbols_map = {} 
+    tickers_to_fetch = []
+
+    for item in target_user.portfolio:
+        yf_symbol = f"{item.symbol}-USD" if not item.symbol.endswith("-USD") else item.symbol
+        tickers_to_fetch.append(yf_symbol)
+        symbols_map[item.symbol] = yf_symbol
+
+    # --- OTIMIZAÇÃO: 2. Buscar Preços em Massa ---
+    live_prices = {}
+    if tickers_to_fetch:
+        try:
+            # Download RÁPIDO de tudo de uma vez
+            data = yf.download(tickers_to_fetch, period="1d", interval="1d", progress=False, threads=True, group_by='ticker')
+            
+            for symbol in tickers_to_fetch:
+                try:
+                    if len(tickers_to_fetch) == 1:
+                        price = data['Close'].iloc[-1]
+                    else:
+                        price = data[symbol]['Close'].iloc[-1]
+                    
+                    if float(price) > 0:
+                        live_prices[symbol] = float(price)
+                except:
+                    pass 
+        except Exception as e:
+            print(f"Erro batch download copy: {e}")
+
+    # 3. Construir lista final
+    for item in target_user.portfolio:
+        yf_symbol = symbols_map.get(item.symbol)
+        # Usa o preço live obtido em massa ou o preço médio do user como fallback
+        current_price = live_prices.get(yf_symbol, item.avg_price)
+        
+        cost = item.amount * current_price
+        total_cost_to_copy += cost
+        
+        target_assets.append({
+            'symbol': item.symbol,
+            'amount': item.amount,
+            'current_price': current_price,
+            'cost': cost
+        })
+
+    # Calcular o Património do Utilizador Atual
+    my_cash = current_user.virtual_balance
+    my_assets_value = 0.0
+    
+    # Estimativa rápida do valor dos teus ativos (usando avg_price para ser instantâneo)
+    for item in current_user.portfolio:
+        my_assets_value += (item.amount * item.avg_price)
+
+    total_equity = my_cash + my_assets_value
+    badges = get_user_badges(target_user)
+
+    return render_template('copy_confirm.html', 
+                           target=target_user,
+                           target_assets=target_assets,
+                           total_cost=total_cost_to_copy,
+                           my_cash=my_cash,
+                           my_equity=total_equity,
+                           badges=badges)
+
+@app.route('/copy_trade/execute/<target_username>', methods=['POST'])
+@login_required
+def copy_trade_execute(target_username):
+    target_user = User.query.filter_by(username=target_username).first_or_404()
+    action_type = request.form.get('action_type') # 'direct_buy' ou 'sell_and_buy'
+    
+    try:
+        # --- OTIMIZAÇÃO: Buscar TODOS os preços de execução de uma vez ---
+        tickers_to_fetch = [f"{item.symbol}-USD" for item in target_user.portfolio]
+        live_prices = {}
+        
+        if tickers_to_fetch:
+            data = yf.download(tickers_to_fetch, period="1d", interval="1d", progress=False, threads=True, group_by='ticker')
+            for item in target_user.portfolio:
+                sym = f"{item.symbol}-USD"
+                try:
+                    if len(tickers_to_fetch) == 1:
+                        price = float(data['Close'].iloc[-1])
+                    else:
+                        price = float(data[sym]['Close'].iloc[-1])
+                    live_prices[sym] = price
+                except:
+                    live_prices[sym] = item.avg_price # Fallback
+
+        # Calcular custo real necessário
+        cost_needed = 0.0
+        orders_to_execute = []
+        
+        for item in target_user.portfolio:
+            yf_sym = f"{item.symbol}-USD"
+            price = live_prices.get(yf_sym, item.avg_price)
+            cost = item.amount * price
+            cost_needed += cost
+            orders_to_execute.append({
+                'symbol': item.symbol, 
+                'amount': item.amount, 
+                'price': price, 
+                'cost': cost
+            })
+
+        # Vender ativos atuais se necessário
+        if action_type == 'sell_and_buy':
+            liquidation_value = 0
+            # Apaga tudo de uma vez (mais rápido) e soma valores
+            for my_item in current_user.portfolio:
+                # Usa avg_price para venda rápida ou podes fazer outro fetch se quiseres precisão máxima
+                sell_val = my_item.amount * my_item.avg_price 
+                liquidation_value += sell_val
+                
+                tx = Transaction(user_id=current_user.id, symbol=my_item.symbol, type="SELL", 
+                                 price=my_item.avg_price, amount=my_item.amount, total_value=sell_val)
+                db.session.add(tx)
+                db.session.delete(my_item)
+            
+            current_user.virtual_balance += liquidation_value
+            db.session.commit()
+
+        # Verificar Saldo
+        if current_user.virtual_balance < cost_needed:
+            flash(f"Saldo insuficiente. Precisas de ${cost_needed:,.2f}.", "error")
+            return redirect(url_for('copy_trade_preview', target_username=target_username))
+
+        # EXECUTAR A COMPRA
+        for order in orders_to_execute:
+            current_user.virtual_balance -= order['cost']
+            
+            existing = Portfolio.query.filter_by(user_id=current_user.id, symbol=order['symbol']).first()
+            if existing:
+                total_old = existing.amount * existing.avg_price
+                new_amount = existing.amount + order['amount']
+                existing.avg_price = (total_old + order['cost']) / new_amount
+                existing.amount = new_amount
+            else:
+                new_pos = Portfolio(user_id=current_user.id, symbol=order['symbol'], 
+                                    amount=order['amount'], avg_price=order['price'])
+                db.session.add(new_pos)
+            
+            tx = Transaction(user_id=current_user.id, symbol=order['symbol'], type="BUY", 
+                             price=order['price'], amount=order['amount'], total_value=order['cost'])
+            db.session.add(tx)
+
+        db.session.commit()
+        flash(f"Portfólio de {target_username} copiado com sucesso!", "success")
+        return redirect(url_for('paper_trading'))
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro execute copy: {e}")
+        flash("Erro ao executar cópia. Tenta novamente.", "error")
+        return redirect(url_for('leaderboard_page'))
 
 @app.route('/toggle_watchlist/<ticker>')
 @login_required
@@ -823,6 +994,7 @@ def decode_market():
     except Exception as e: return jsonify({"error": str(e)})
 
 @app.route('/get_recommendations', methods=['GET'])
+@cache.cached(timeout=600)
 def get_recommendations():
     try:
         # LISTA EXPANDIDA (Top 50 + Populares)
@@ -934,20 +1106,48 @@ def paper_trading():
     allocation_labels = []
     allocation_data = []
 
+    # --- OTIMIZAÇÃO: 1. Preparar lista de Símbolos ---
+    symbols_map = {} # Mapa: "BTC-USD" -> item_object
+    tickers_to_fetch = []
+
     for item in portfolio_items:
+        # Normalizar símbolo para o Yahoo Finance (ex: BTC -> BTC-USD)
+        yf_symbol = f"{item.symbol}-USD" if not item.symbol.endswith("-USD") else item.symbol
+        tickers_to_fetch.append(yf_symbol)
+        symbols_map[item.symbol] = yf_symbol
+
+    # --- OTIMIZAÇÃO: 2. Buscar Preços em Massa (Batch Download) ---
+    live_prices = {}
+    if tickers_to_fetch:
         try:
-            # Tenta preço live (com cache de 1 minuto seria ideal, mas aqui direto)
-            ticker = yf.Ticker(f"{item.symbol}-USD")
-            hist = ticker.history(period="1d")
-            if not hist.empty:
-                current_price = hist['Close'].iloc[-1]
-            else:
-                ticker = yf.Ticker(item.symbol) # Tenta sem -USD
-                hist = ticker.history(period="1d")
-                current_price = hist['Close'].iloc[-1] if not hist.empty else item.avg_price
-        except:
-            current_price = item.avg_price # Fallback
+            # Pede todos de uma vez. O threads=True acelera o processo.
+            # Usamos group_by='ticker' para facilitar o acesso.
+            data = yf.download(tickers_to_fetch, period="1d", interval="1d", progress=False, threads=True, group_by='ticker')
+            
+            for symbol in tickers_to_fetch:
+                try:
+                    # Se for apenas 1 símbolo, a estrutura do DataFrame é diferente
+                    if len(tickers_to_fetch) == 1:
+                        price = data['Close'].iloc[-1]
+                    else:
+                        price = data[symbol]['Close'].iloc[-1]
+                    
+                    # Verifica se o preço é válido (não é NaN)
+                    if float(price) > 0:
+                        live_prices[symbol] = float(price)
+                except:
+                    pass # Se falhar, usaremos o preço médio como fallback
+        except Exception as e:
+            print(f"Erro no download em massa: {e}")
+
+    # --- 3. Processar Portfólio com Preços Rápidos ---
+    for item in portfolio_items:
+        yf_symbol = symbols_map.get(item.symbol)
         
+        # Tenta pegar o preço live, se falhar usa o preço médio de compra
+        current_price = live_prices.get(yf_symbol, item.avg_price)
+        
+        # Cálculos normais
         value = item.amount * current_price
         total_portfolio_value += value
         
@@ -1269,5 +1469,14 @@ def crypto_snapshot_page():
         return redirect(url_for('crypto_page'))
 
 if __name__ == '__main__':
-    # Adiciona host='0.0.0.0'
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    print("--- 1. A iniciar conexão com a Base de Dados... ---")
+    try:
+        with app.app_context():
+            db.create_all()
+        print("--- 2. Base de Dados conectada com sucesso! ---")
+    except Exception as e:
+        print(f"--- ERRO FATAL NA BASE DE DADOS: {e} ---")
+
+    print("--- 3. A arrancar servidor Flask na porta 5000... ---")
+    # Adicionamos threaded=True para evitar bloqueios simples
+    app.run(debug=True, port=5000, host='0.0.0.0', threaded=True)

@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .confirm-grid {
+        display: grid; grid-template-columns: 1fr 2fr; gap: 30px; margin-top: 40px;
+    }
+    .cost-row {
+        display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .cost-total {
+        font-size: 1.5rem; font-weight: bold; color: white; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--neon-blue);
+    }
+    .status-check {
+        padding: 15px; border-radius: 8px; margin-top: 20px; text-align: center;
+    }
+    .can-buy { background: rgba(46, 204, 113, 0.1); border: 1px solid #2ecc71; color: #2ecc71; }
+    .need-sell { background: rgba(241, 196, 15, 0.1); border: 1px solid #f1c40f; color: #f1c40f; }
+    .broke { background: rgba(231, 76, 60, 0.1); border: 1px solid #e74c3c; color: #e74c3c; }
+
+    @media (max-width: 900px) { .confirm-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="section-container fade-in" style="max-width: 1000px; margin-top: 100px;">
+    
+    <a href="{{ url_for('public_profile', username=target.username) }}" class="btn-outline mb-20">
+        <i class="fa-solid fa-arrow-left"></i> Cancelar
+    </a>
+
+    <h2 class="text-center mb-20">Confirmar Copy Trade</h2>
+
+    <div class="confirm-grid">
+        
+        <div class="glass-panel text-center" style="height: fit-content;">
+            <div style="width:100px; height:100px; background:var(--neon-purple); border-radius:50%; margin:0 auto 20px; display:flex; align-items:center; justify-content:center; font-size:3rem; color:white; border:4px solid rgba(255,255,255,0.2);">
+                <i class="fa-solid {{ target.avatar }}"></i>
+            </div>
+            <h3>{{ target.username }}</h3>
+            
+            <p class="text-muted mt-20">
+                <i class="fa-regular fa-calendar"></i> Membro desde:<br>
+                <span style="color:white;">{{ target.created_at.strftime('%d/%m/%Y') if target.created_at else '2024' }}</span>
+            </p>
+
+            <div class="section-divider" style="margin: 20px 0;"></div>
+            
+            <h4>Badges</h4>
+            <div style="display: flex; gap: 8px; justify-content: center; margin-top: 10px; flex-wrap: wrap;">
+                {% if badges %}
+                    {% for badge in badges %}
+                    <div title="{{ badge.title }}" style="width: 35px; height: 35px; background: rgba(255,255,255,0.05); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid {{ badge.color }}; color: {{ badge.color }};">
+                        <i class="fa-solid {{ badge.icon }}"></i>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <span class="text-muted text-sm">Sem badges.</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="glass-panel">
+            <h3><i class="fa-solid fa-receipt"></i> Ordem de Compra</h3>
+            <p class="text-muted">Irás comprar as quantidades exatas abaixo aos preços de mercado atuais.</p>
+
+            <div class="table-responsive mt-20" style="max-height: 300px; overflow-y: auto;">
+                <table class="market-table-full">
+                    <thead>
+                        <tr>
+                            <th>Ativo</th>
+                            <th class="text-right">Quantidade</th>
+                            <th class="text-right">Preço Atual</th>
+                            <th class="text-right">Custo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in target_assets %}
+                        <tr>
+                            <td style="font-weight:bold; color:var(--neon-blue);">{{ item.symbol }}</td>
+                            <td class="text-right">{{ "{:.4f}".format(item.amount) }}</td>
+                            <td class="text-right text-muted">${{ "{:,.2f}".format(item.current_price) }}</td>
+                            <td class="text-right">${{ "{:,.2f}".format(item.cost) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-20">
+                <div class="cost-row">
+                    <span>O teu Saldo (Cash):</span>
+                    <span class="{{ 'green' if my_cash >= total_cost else 'red' }}">${{ "{:,.2f}".format(my_cash) }}</span>
+                </div>
+                <div class="cost-row">
+                    <span>Custo Total da Cópia:</span>
+                    <span style="font-weight:bold;">${{ "{:,.2f}".format(total_cost) }}</span>
+                </div>
+                
+                {% if my_cash >= total_cost %}
+                    <div class="status-check can-buy">
+                        <i class="fa-solid fa-check-circle"></i> Tens saldo suficiente para esta operação.
+                    </div>
+                    
+                    <form action="{{ url_for('copy_trade_execute', target_username=target.username) }}" method="POST" class="mt-20">
+                        <input type="hidden" name="action_type" value="direct_buy">
+                        <button type="submit" class="btn-glow full-width">
+                            CONFIRMAR COMPRA (${{ "{:,.2f}".format(total_cost) }})
+                        </button>
+                    </form>
+
+                {% elif my_equity >= total_cost %}
+                    <div class="status-check need-sell">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Saldo insuficiente.<br>
+                        Mas tens <b>${{ "{:,.2f}".format(my_equity) }}</b> em património total.
+                    </div>
+                    
+                    <form action="{{ url_for('copy_trade_execute', target_username=target.username) }}" method="POST" class="mt-20">
+                        <input type="hidden" name="action_type" value="sell_and_buy">
+                        <button type="submit" class="btn-glow full-width" style="background: #f1c40f; color: black; border-color: #f1c40f;">
+                            VENDER MEUS ATIVOS & COPIAR
+                        </button>
+                        <p class="text-center text-muted" style="font-size:0.8rem; margin-top:10px;">
+                            Isto vai liquidar todo o teu portfolio atual primeiro.
+                        </p>
+                    </form>
+
+                {% else %}
+                    <div class="status-check broke">
+                        <i class="fa-solid fa-ban"></i> Património Insuficiente.<br>
+                        Precisas de ${{ "{:,.2f}".format(total_cost) }}, mas só tens ${{ "{:,.2f}".format(my_equity) }} no total.
+                    </div>
+                    
+                    <a href="{{ url_for('reset_account') }}" class="btn-outline full-width mt-20" onclick="return confirm('Isto vai apagar tudo e dar-te $10k. Confirmar?');" style="text-align:center;">
+                        <i class="fa-solid fa-rotate-right"></i> FAZER RESET DA CONTA ($10k)
+                    </a>
+                {% endif %}
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
